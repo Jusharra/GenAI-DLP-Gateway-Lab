@@ -24,7 +24,7 @@ test_python:
 
 security_scan:
   stage: security
-  image: python:3.11
+  image: Python 3.13.5
   script:
     - echo "security_scan placeholder"
   allow_failure: true
