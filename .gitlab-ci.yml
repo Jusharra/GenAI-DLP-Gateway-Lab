@@ -1,0 +1,39 @@
+include:
+  - local: "platform/devsecops/gitlab/base-ci.yml"
+
+stages:
+  - build
+  - validate
+  - test
+  - security
+  - policy-check
+  - deploy
+  - evidence
+
+build_lambda_packages:
+  extends: .build_lambda_template
+  only: [main, master, develop, merge_requests]
+
+validate_terraform:
+  extends: .validate_tf_template
+  only: [main, master, develop, merge_requests]
+
+test_python:
+  extends: .test_python_template
+  only: [main, master, develop, merge_requests]
+
+security_scan:
+  extends: .security_scan_template
+  only: [main, master, develop, merge_requests]
+
+policy_check:
+  extends: .policy_check_template
+  only: [main, master, develop, merge_requests]
+
+deploy:
+  extends: .deploy_tf_template
+  only: [main, master]
+
+generate_evidence:
+  extends: .evidence_template
+  only: [main, master]
