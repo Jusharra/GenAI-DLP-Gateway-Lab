@@ -11,8 +11,28 @@ stages:
   - evidence
 
 build_lambda_packages:
-  extends: .build_lambda_template
-  only: [main, master, develop, merge_requests]
+  stage: build
+  image: python:3.13
+  before_script:
+    - apt-get update
+    - apt-get install -y zip
+  script:
+    - mkdir -p $PY_ROOT/package
+    - pip install -r $PY_ROOT/requirements-dev.txt -t $PY_ROOT/package/
+    - cp $PY_ROOT/dlp_handler.py $PY_ROOT/rag_handler.py $PY_ROOT/package/
+    - cd $PY_ROOT/package
+    - mkdir -p ../dist
+    - zip -r ../dist/dlp_package.zip dlp_handler.py
+    - zip -r ../dist/rag_package.zip rag_handler.py
+  artifacts:
+    paths:
+      - $PY_ROOT/dist/
+  only:
+    - main
+    - master
+    - develop
+    - merge_requests
+
 
 validate_terraform:
   extends: .validate_tf_template
