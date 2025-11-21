@@ -67,10 +67,11 @@ cache:
     - terraform init -backend=false
     - terraform plan -out=tfplan
     - terraform show -json tfplan > tfplan.json
-    - opa eval --format pretty --fail-defined \
-        -i tfplan.json \
-        -d platform/governance/policies_as_code/opa/terraform_guardrails.rego \
-        "data.terraform.guardrails.dlp.deny"
+    - >
+      opa eval --format pretty --fail-defined
+      -i tfplan.json
+      -d platform/governance/policies_as_code/opa/terraform_guardrails.rego
+      "data.terraform.guardrails.dlp.deny"
 
 .deploy_tf_template:
   stage: deploy
