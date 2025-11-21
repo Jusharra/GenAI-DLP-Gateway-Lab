@@ -44,13 +44,6 @@ cache:
     - cd $PY_ROOT
     - pytest
 
-.security_scan_template:
-  stage: security
-  image: python:${PY_VERSION}
-  script:
-    - echo "Placeholder: add bandit/trufflehog/snyk later"
-  allow_failure: true
-
 .policy_check_template:
   stage: policy-check
   image: alpine:3.19
