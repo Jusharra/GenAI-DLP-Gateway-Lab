@@ -1,5 +1,6 @@
 cat << 'EOF' > .gitignore
 # Python
+platform/devsecops/python/dist/
 __pycache__/
 *.pyc
 .venv/
