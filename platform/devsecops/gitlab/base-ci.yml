@@ -1,0 +1,83 @@
+stages:
+  - validate
+  - test
+  - security
+  - build
+  - deploy
+  - audit
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+.default-python-job:
+  image: python:3.11-slim
+  before_script:
+    - pip install --upgrade pip
+    - pip install -r requirements-dev.txt
+
+# 1) Governance-aware validation
+validate:controls:
+  stage: validate
+  extends: .default-python-job
+  script:
+    - mkdir -p reports
+    - python platform/devsecops/scripts/check_controls_mapping.py
+  artifacts:
+    paths:
+      - reports/controls_mapping.json
+
+# 2) Unit tests
+test:unit:
+  stage: test
+  extends: .default-python-job
+  script:
+    - pytest -q
+
+# 3) App security
+security:sast:
+  stage: security
+  extends: .default-python-job
+  script:
+    - mkdir -p reports
+    - bandit -r src -f json -o reports/bandit.json
+  artifacts:
+    paths:
+      - reports/bandit.json
+
+security:deps:
+  stage: security
+  extends: .default-python-job
+  script:
+    - mkdir -p reports
+    - safety check --full-report --file=requirements.txt --output=reports/safety.txt || true
+  artifacts:
+    paths:
+      - reports/safety.txt
+
+# 4) Terraform validation
+terraform:validate:
+  stage: validate
+  image: hashicorp/terraform:1.9
+  script:
+    - terraform fmt -check || true
+    - terraform validate
+
+# 5) MLSecOps checks (only used by ML projects)
+mlsecops:checks:
+  stage: security
+  extends: .default-python-job
+  script:
+    - pytest tests/test_model_security.py
+  rules:
+    - exists:
+        - tests/test_model_security.py
+
+# 6) Audit / evidence summary
+audit:evidence:
+  stage: audit
+  extends: .default-python-job
+  script:
+    - python platform/devsecops/scripts/generate_evidence_report.py
+  artifacts:
+    paths:
+      - reports/evidence/evidence_summary.json

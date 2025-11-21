@@ -1,0 +1,57 @@
+framework: "SOC 2"
+version: "TSC 2017"
+owner: "GRC Engineering"
+
+controls:
+  - id: "CC6.1"
+    name: "Logical access security"
+    objective: "Restrict logical access to information assets to authorized users, processes, and devices."
+    description: >
+      Access to cloud resources, CI/CD, evidence stores, and ML infrastructure
+      must be limited to authenticated, authorized identities following least privilege.
+    mapped_domains:
+      - identity_and_access_management
+      - cloud_security
+      - devsecops
+    enforced_by:
+      terraform_modules:
+        - "platform/devsecops/terraform/evidence_s3"
+      policies_as_code:
+        - "platform/governance/policies_as_code/opa/terraform_guardrails.rego"
+      ci_jobs:
+        - "validate:controls"
+        - "terraform:validate"
+
+  - id: "CC7.2"
+    name: "Change management"
+    objective: "Changes to infrastructure, code, and ML pipelines are authorized, tested, and documented."
+    description: >
+      Any change to infrastructure, models, or pipelines must go through CI/CD
+      with automated tests, security checks, and approvals.
+    mapped_domains:
+      - devsecops
+      - mlsecops
+      - software_change_management
+    enforced_by:
+      ci_jobs:
+        - "test:unit"
+        - "security:sast"
+        - "security:deps"
+        - "mlsecops:checks"
+      gitlab_settings:
+        required_approvals: 1
+
+  - id: "CC7.3"
+    name: "System operations"
+    objective: "Monitor system components and operations to detect and remediate deviations."
+    mapped_domains:
+      - observability
+      - ml_monitoring
+      - logging
+    enforced_by:
+      terraform_modules:
+        - "logging/centralized"    # future module
+      scripts:
+        - "platform/devsecops/scripts/generate_evidence_report.py"
+      mlsecops:
+        - "platform/mlsecops/templates/base-ml-project/mlops/drift_monitoring.yaml"

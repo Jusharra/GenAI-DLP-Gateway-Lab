@@ -1,0 +1,11 @@
+drift_monitors:
+  - type: "feature_distribution"
+    schedule: "daily"
+    description: "Compare live feature distributions against training baseline."
+  - type: "prediction_distribution"
+    schedule: "daily"
+    description: "Track shifts in prediction patterns that may indicate drift or attacks."
+alerts:
+  - channel: "email"
+    target: "mlsecops@example.com"
+    threshold: "significant_shift"

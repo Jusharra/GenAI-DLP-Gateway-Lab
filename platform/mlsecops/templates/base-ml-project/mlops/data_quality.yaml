@@ -1,0 +1,8 @@
+checks:
+  - name: "null_fraction"
+    description: "Ensure no column has more than 30% nulls."
+    max_null_fraction: 0.3
+
+  - name: "label_imbalance"
+    description: "Ensure no class exceeds 90% of the dataset."
+    max_label_fraction: 0.9

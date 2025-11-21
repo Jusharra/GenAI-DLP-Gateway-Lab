@@ -1,0 +1,7 @@
+risks_considered:
+  - "R-ML-001"
+controls_applied:
+  - "validate_training_data"
+  - "data_quality checks in CI"
+ci_jobs:
+  - "mlsecops:checks"

@@ -1,0 +1,10 @@
+experiment_name: "baseline-mlsecops-lab"
+dataset:
+  path: "data/sample.csv"
+  label_column: "label"
+
+model:
+  type: "logistic_regression"
+  params:
+    max_iter: 200
+    random_state: 42

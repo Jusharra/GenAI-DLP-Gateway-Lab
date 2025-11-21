@@ -1,0 +1,60 @@
+owner: "GRC Engineering"
+last_reviewed: "2025-11-19"
+
+risks:
+  - id: "R-DEVSEC-001"
+    title: "Misconfigured IAM roles in Terraform deployments"
+    area: "DevSecOps"
+    likelihood: "Medium"
+    impact: "High"
+    description: >
+      Overly permissive IAM policies or role assumptions could allow unauthorized access
+      to cloud resources, pipelines, or evidence.
+    frameworks:
+      - "SOC 2: CC6.1"
+      - "ISO 27001: A.9"
+    controls:
+      - "terraform_static_analysis"
+      - "policy_as_code_guardrails"
+      - "mandatory_code_review"
+    enforced_by:
+      - "ci_job: terraform:validate"
+      - "policy: terraform_guardrails.rego"
+
+  - id: "R-ML-001"
+    title: "Poisoned training data in ML pipelines"
+    area: "MLSecOps"
+    likelihood: "Medium"
+    impact: "High"
+    description: >
+      Adversaries or untrusted sources may inject malicious or low-quality data into training sets,
+      leading to biased, unreliable, or exploitable models.
+    frameworks:
+      - "NIST AI RMF: MAP, MEASURE"
+      - "SOC 2: CC7.2"
+    controls:
+      - "data_quality_checks"
+      - "restricted_training_data_access"
+      - "data_lineage_tracking"
+    enforced_by:
+      - "mlsecops:checks"
+      - "mlops/data_quality.yaml"
+
+  - id: "R-RAG-001"
+    title: "Leaking sensitive information from RAG/vector stores"
+    area: "MLSecOps"
+    likelihood: "Medium"
+    impact: "Critical"
+    description: >
+      Retrieval-augmented generation systems may expose sensitive evidence,
+      configuration, or customer data via prompts or misconfigured access control.
+    frameworks:
+      - "NIST AI RMF: GOVERN, MAP"
+      - "SOC 2: CC6.1, CC7.2"
+    controls:
+      - "rbac_for_vector_stores"
+      - "prompt_guardrails"
+      - "masking_redaction"
+    enforced_by:
+      - "policies_as_code: rag_access.rego (future)"
+      - "model_card.yaml: risk disclosures"

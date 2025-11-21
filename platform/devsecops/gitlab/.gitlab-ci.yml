@@ -1,0 +1,2 @@
+include:
+  - local: "platform/devsecops/gitlab/base-ci.yml"

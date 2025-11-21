@@ -1,0 +1,18 @@
+model_name: "baseline_logreg"
+owner: "MLSecOps Lab"
+intended_use: >
+  Demonstration of MLSecOps practices for classification models in a lab setting.
+limitations:
+  - "Not tuned for production performance."
+  - "No fairness or bias audit results included yet."
+risks:
+  - id: "R-ML-001"
+    description: "Training data poisoning and quality issues."
+controls:
+  - "validate_training_data"
+  - "data_quality checks in CI (mlsecops:checks)"
+metrics:
+  - name: "test_accuracy"
+    description: "Held-out test accuracy"
+monitoring:
+  - "drift_monitoring.yaml"
