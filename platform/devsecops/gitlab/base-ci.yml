@@ -1,35 +1,67 @@
-stages:
-  - validate
-  - test
-  - security
-  - policy-check
-  - deploy
-  - evidence
-
 variables:
+  TF_VERSION: "1.6.6"
+  PY_VERSION: "3.11"
   TF_ROOT: "platform/devsecops/terraform/evidence_s3"
+  PY_ROOT: "platform/devsecops/python"
 
-validate_terraform:
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .cache/pip
+    - platform/devsecops/python/package
+    - platform/devsecops/python/dist
+
+.build_lambda_template:
+  stage: build
+  image: python:${PY_VERSION}
+  script:
+    - mkdir -p $PY_ROOT/package
+    - pip install -r $PY_ROOT/requirements-dev.txt -t $PY_ROOT/package/
+    - cp $PY_ROOT/dlp_handler.py $PY_ROOT/rag_handler.py $PY_ROOT/package/
+    - cd $PY_ROOT/package
+    - mkdir -p ../dist
+    - zip -r ../dist/dlp_package.zip dlp_handler.py
+    - zip -r ../dist/rag_package.zip rag_handler.py
+  artifacts:
+    paths:
+      - $PY_ROOT/dist/
+
+.validate_tf_template:
   stage: validate
+  image: hashicorp/terraform:${TF_VERSION}
+  needs: ["build_lambda_packages"]
   script:
     - cd $TF_ROOT
     - terraform init -backend=false
     - terraform validate
 
-test_python:
+.test_python_template:
   stage: test
+  image: python:${PY_VERSION}
+  needs: ["build_lambda_packages"]
   script:
-    - pip install -r platform/devsecops/python/requirements-dev.txt
-    - pytest || echo "pytest not yet configured, skipping"
+    - pip install -r $PY_ROOT/requirements-dev.txt
+    - cd $PY_ROOT
+    - pytest
 
-security_scan:
+.security_scan_template:
   stage: security
+  image: python:${PY_VERSION}
   script:
-    - echo "Run SAST / secrets scanning here (e.g., trufflehog, bandit)"
+    - echo "Placeholder: add bandit/trufflehog/snyk later"
   allow_failure: true
 
-policy_check:
+.policy_check_template:
   stage: policy-check
+  image: alpine:3.19
+  needs: ["build_lambda_packages"]
+  before_script:
+    - apk add --no-cache curl bash jq unzip
+    - curl -Lo /tmp/terraform.zip https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
+    - unzip /tmp/terraform.zip -d /usr/local/bin/
+    - chmod +x /usr/local/bin/terraform
+    - curl -Lo /usr/local/bin/opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64
+    - chmod +x /usr/local/bin/opa
   script:
     - cd $TF_ROOT
     - terraform init -backend=false
@@ -39,21 +71,27 @@ policy_check:
         -i tfplan.json \
         -d platform/governance/policies_as_code/opa/terraform_guardrails.rego \
         "data.terraform.guardrails.dlp.deny"
-  allow_failure: false
 
-deploy:
+.deploy_tf_template:
   stage: deploy
-  when: manual
+  image: hashicorp/terraform:${TF_VERSION}
+  needs: ["build_lambda_packages", "validate_terraform", "policy_check"]
   script:
     - cd $TF_ROOT
     - terraform init
     - terraform apply -auto-approve
-
-generate_evidence:
-  stage: evidence
   when: manual
+  environment:
+    name: dlp-gateway-lab
+
+.evidence_template:
+  stage: evidence
+  image: python:${PY_VERSION}
+  needs: ["deploy"]
   script:
+    - pip install -r $PY_ROOT/requirements-dev.txt
     - python platform/devsecops/scripts/generate_evidence_report.py
   artifacts:
     paths:
       - evidence/
+  when: manual
