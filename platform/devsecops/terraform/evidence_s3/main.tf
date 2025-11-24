@@ -23,8 +23,12 @@ resource "aws_kms_key" "evidence" {
 resource "aws_s3_bucket" "evidence" {
   bucket = var.evidence_bucket_name
 
-  versioning {
-    enabled = true
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Owner       = "Jusharra"
+    Purpose     = "GenAI-DLP-Evidence"
+    DataClass   = "Sensitive"
   }
 
   server_side_encryption_configuration {

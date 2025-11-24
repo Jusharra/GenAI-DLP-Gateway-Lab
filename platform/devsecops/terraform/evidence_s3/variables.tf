@@ -14,6 +14,11 @@ variable "evidence_bucket_name" {
   description = "Name of the S3 evidence bucket"
 }
 
+variable "environment" {
+  type        = string
+  description = "Deployment environment (dev/staging/prod)"
+}
+
 variable "dlp_lambda_env" {
   type        = map(string)
   default     = {}
