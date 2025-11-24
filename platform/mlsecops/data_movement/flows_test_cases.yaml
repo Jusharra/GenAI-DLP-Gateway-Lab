@@ -1,0 +1,48 @@
+version: 1
+test_cases:
+
+  - id: DENY-001
+    name: PHI prompt must never reach Pinecone
+    movement:
+      from: rag_orchestrator
+      to: pinecone
+    input_state:
+      classification_label: RESTRICTED_PHI
+      redaction_applied: false
+    expect:
+      allowed: false
+      reason_contains: "restricted PHI"
+
+  - id: DENY-002
+    name: PII prompt without redaction must not reach Pinecone
+    movement:
+      from: rag_orchestrator
+      to: pinecone
+    input_state:
+      classification_label: RESTRICTED_PII
+      redaction_applied: false
+    expect:
+      allowed: false
+      reason_contains: "redaction required"
+
+  - id: DENY-003
+    name: Blocked prompt must not reach LLM
+    movement:
+      from: rag_orchestrator
+      to: llm
+    input_state:
+      policy_decision: { action: block }
+    expect:
+      allowed: false
+      reason_contains: "blocked by policy"
+
+  - id: DENY-004
+    name: Blocked response must not reach user
+    movement:
+      from: dlp_gateway
+      to: user
+    input_state:
+      policy_decision: { action: block }
+    expect:
+      allowed: false
+      reason_contains: "blocked by policy"

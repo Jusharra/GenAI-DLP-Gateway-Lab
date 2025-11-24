@@ -1,0 +1,81 @@
+{
+  "flows": [
+    {
+      "id": "FLOW-INGRESS-001",
+      "name": "Prompt \u00e2\u2020\u2019 DLP Gateway",
+      "from": "user",
+      "to": "dlp_gateway",
+      "allowed": true,
+      "requires": [
+        "classification",
+        "policy_eval"
+      ]
+    },
+    {
+      "id": "FLOW-INGRESS-002",
+      "name": "DLP Gateway \u00e2\u2020\u2019 RAG Orchestrator",
+      "from": "dlp_gateway",
+      "to": "rag_orchestrator",
+      "allowed": true,
+      "conditions": [
+        "classification_label not_in [RESTRICTED_PHI]",
+        "policy_decision.action in [allow, mask]"
+      ]
+    },
+    {
+      "id": "FLOW-INGRESS-003",
+      "name": "RAG Orchestrator \u00e2\u2020\u2019 Pinecone Retrieval",
+      "from": "rag_orchestrator",
+      "to": "pinecone",
+      "allowed": true,
+      "conditions": [
+        "classification_label not_in [RESTRICTED_PHI, RESTRICTED_PII]",
+        "redaction_applied == true"
+      ]
+    },
+    {
+      "id": "FLOW-INGRESS-004",
+      "name": "RAG Orchestrator \u00e2\u2020\u2019 LLM",
+      "from": "rag_orchestrator",
+      "to": "llm",
+      "allowed": true,
+      "conditions": [
+        "classification_label not_in [RESTRICTED_PHI, RESTRICTED_PII]",
+        "policy_decision.action in [allow, mask]"
+      ]
+    },
+    {
+      "id": "FLOW-EGRESS-001",
+      "name": "LLM \u00e2\u2020\u2019 DLP Gateway",
+      "from": "llm",
+      "to": "dlp_gateway",
+      "allowed": true,
+      "requires": [
+        "outbound_scan",
+        "classification",
+        "policy_eval"
+      ]
+    },
+    {
+      "id": "FLOW-EGRESS-002",
+      "name": "DLP Gateway \u00e2\u2020\u2019 User",
+      "from": "dlp_gateway",
+      "to": "user",
+      "allowed": true,
+      "conditions": [
+        "policy_decision.action in [allow, mask]"
+      ]
+    },
+    {
+      "id": "FLOW-EVIDENCE-001",
+      "name": "DLP Gateway \u00e2\u2020\u2019 Evidence Vault",
+      "from": "dlp_gateway",
+      "to": "evidence_s3",
+      "allowed": true,
+      "requires": [
+        "kms_encryption",
+        "immutable_logging"
+      ]
+    }
+  ]
+}

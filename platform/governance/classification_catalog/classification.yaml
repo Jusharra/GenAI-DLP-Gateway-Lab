@@ -1,0 +1,29 @@
+version: 1
+labels:
+  PUBLIC:
+    description: Non-sensitive content approved for disclosure.
+    handling:
+      - allow
+  INTERNAL:
+    description: Business-internal operational content.
+    handling:
+      - allow
+      - log
+  CONFIDENTIAL:
+    description: Sensitive business content; limit to need-to-know.
+    handling:
+      - mask
+      - log
+  RESTRICTED_PII:
+    description: Personally Identifiable Information (PII).
+    handling:
+      - mask
+      - log
+      - evidence
+  RESTRICTED_PHI:
+    description: Protected Health Information (PHI).
+    handling:
+      - block
+      - log
+      - evidence
+priority: [RESTRICTED_PHI, RESTRICTED_PII, CONFIDENTIAL, INTERNAL, PUBLIC]

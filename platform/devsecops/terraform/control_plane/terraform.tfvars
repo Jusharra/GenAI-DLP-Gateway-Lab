@@ -1,0 +1,5 @@
+environment          = "dev"
+project_name         = "genai-dlp-gateway-lab"
+evidence_bucket_name = "vhc-dlp-evidence-logs-dev"
+demo_bucket_name     = "vhc-dlp-demo-data-dev"
+quarantine_bucket_name = "vhc-dlp-quarantine-dev"

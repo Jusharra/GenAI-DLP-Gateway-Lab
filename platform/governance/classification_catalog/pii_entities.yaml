@@ -1,0 +1,19 @@
+version: 1
+entities:
+  # High-risk (map to RESTRICTED_PHI first, else PII)
+  MRN: RESTRICTED_PHI
+  ICD10_CODE: RESTRICTED_PHI
+  MEDICATION: RESTRICTED_PHI
+  # PII (restricted)
+  SSN: RESTRICTED_PII
+  PASSPORT: RESTRICTED_PII
+  DRIVERS_LICENSE: RESTRICTED_PII
+  CREDIT_CARD: RESTRICTED_PII
+  DOB: RESTRICTED_PII
+  PHONE_NUMBER: RESTRICTED_PII
+  EMAIL_ADDRESS: RESTRICTED_PII
+  IP_ADDRESS: CONFIDENTIAL
+  ADDRESS: RESTRICTED_PII
+defaults:
+  no_entities: INTERNAL     # when text is business-y but no sensitive hits
+  fallback: PUBLIC          # benign small-talk, docs, etc.

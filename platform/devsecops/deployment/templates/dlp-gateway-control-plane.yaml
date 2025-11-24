@@ -1,0 +1,286 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  GenAI DLP Gateway Lab - Control Plane
+  Buckets + KMS + Governance IAM Roles for Prompt/Response DLP + RAG Pipelines.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: genai-dlp-gateway-lab
+
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, test, prod]
+
+  EvidenceBucketName:
+    Type: String
+    Default: vhc-dlp-evidence-logs-dev
+
+  DemoBucketName:
+    Type: String
+    Default: vhc-dlp-demo-data-dev
+
+  QuarantineBucketName:
+    Type: String
+    Default: vhc-dlp-quarantine-dev
+
+Resources:
+
+  # ---------------------------
+  # KMS Key
+  # ---------------------------
+  DlpKmsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub "${ProjectName}-${Environment}-dlp-kms"
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowAccountAdmin
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+
+  DlpKmsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${ProjectName}-${Environment}-dlp"
+      TargetKeyId: !Ref DlpKmsKey
+
+  # ---------------------------
+  # Evidence Bucket
+  # ---------------------------
+  EvidenceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref EvidenceBucketName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref DlpKmsKey
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: DataClass
+          Value: Restricted
+        - Key: Purpose
+          Value: DLP-Evidence
+
+  # ---------------------------
+  # Demo Data Bucket
+  # ---------------------------
+  DemoDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref DemoBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref DlpKmsKey
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: DataClass
+          Value: Mixed
+        - Key: Purpose
+          Value: Demo-Seed-Data
+
+  # ---------------------------
+  # Quarantine Bucket (optional)
+  # ---------------------------
+  QuarantineBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref QuarantineBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref DlpKmsKey
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: DataClass
+          Value: Restricted
+        - Key: Purpose
+          Value: DLP-Quarantine
+
+  # ---------------------------
+  # IAM Roles (Governance Personas)
+  # ---------------------------
+  DataOwnerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-DataOwnerRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DataOwnerPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: "s3:*"
+                Resource:
+                  - !GetAtt EvidenceBucket.Arn
+                  - !Sub "${EvidenceBucket.Arn}/*"
+                  - !GetAtt DemoDataBucket.Arn
+                  - !Sub "${DemoDataBucket.Arn}/*"
+                  - !GetAtt QuarantineBucket.Arn
+                  - !Sub "${QuarantineBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !GetAtt DlpKmsKey.Arn
+
+  DataStewardRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-DataStewardRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DataStewardPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:ListBucket]
+                Resource:
+                  - !GetAtt DemoDataBucket.Arn
+                  - !Sub "${DemoDataBucket.Arn}/*"
+
+  RAGIngestRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-RAGIngestRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: RAGIngestPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:ListBucket]
+                Resource:
+                  - !GetAtt DemoDataBucket.Arn
+                  - !Sub "${DemoDataBucket.Arn}/clean/*"
+
+  DLPGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-DLPGatewayRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DLPGatewayPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:ListBucket]
+                Resource:
+                  - !GetAtt EvidenceBucket.Arn
+                  - !Sub "${EvidenceBucket.Arn}/*"
+              - Effect: Allow
+                Action: [s3:PutObject]
+                Resource:
+                  - !GetAtt QuarantineBucket.Arn
+                  - !Sub "${QuarantineBucket.Arn}/*"
+              - Effect: Allow
+                Action: [kms:Encrypt, kms:Decrypt, kms:GenerateDataKey]
+                Resource: !GetAtt DlpKmsKey.Arn
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue]
+                Resource: !Sub "arn:aws:secretsmanager:*:${AWS::AccountId}:secret:pinecone-api-key*"
+
+  AuditorReadOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-AuditorReadOnlyRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AuditorReadOnlyPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:ListBucket]
+                Resource:
+                  - !GetAtt EvidenceBucket.Arn
+                  - !Sub "${EvidenceBucket.Arn}/*"
+
+Outputs:
+  EvidenceBucketName:
+    Value: !Ref EvidenceBucket
+  DemoBucketName:
+    Value: !Ref DemoDataBucket
+  QuarantineBucketName:
+    Value: !Ref QuarantineBucket
+  DlpKmsKeyArn:
+    Value: !GetAtt DlpKmsKey.Arn
+
+  DataOwnerRoleArn:
+    Value: !GetAtt DataOwnerRole.Arn
+  DataStewardRoleArn:
+    Value: !GetAtt DataStewardRole.Arn
+  RAGIngestRoleArn:
+    Value: !GetAtt RAGIngestRole.Arn
+  DLPGatewayRoleArn:
+    Value: !GetAtt DLPGatewayRole.Arn
+  AuditorReadOnlyRoleArn:
+    Value: !GetAtt AuditorReadOnlyRole.Arn

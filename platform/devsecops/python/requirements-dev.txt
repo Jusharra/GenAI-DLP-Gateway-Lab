@@ -13,4 +13,4 @@ presidio-anonymizer
 jsonschema
 requests
 pytest
-
+python-dotenv
