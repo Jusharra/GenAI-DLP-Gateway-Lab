@@ -1,4 +1,3 @@
-cat << 'EOF' > .gitignore
 # Python
 platform/devsecops/python/dist/
 __pycache__/
@@ -21,4 +20,3 @@ pytest_cache/
 *.tfstate
 *.tfstate.*
 .terraform/
-EOF

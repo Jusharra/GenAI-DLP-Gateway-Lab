@@ -257,24 +257,44 @@ def check_data_movement(src: str, dst: str, state: dict) -> dict:
     Enforce Data Movement as Code.
     Returns {"allow": bool, "reason": str}
     """
+    if not OPA_BIN:
+        raise RuntimeError(
+            "OPA binary not found. Set OPA_BIN=C:\\Tools\\opa\\opa.exe"
+        )
+
     payload = {
         "from": src,
         "to": dst,
         "state": state or {}
     }
-    cmd = [
-        "opa","eval",
+
+    # --- Windows-safe: write input to temp file ---
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tf:
+        json.dump(payload, tf)
+        tf.flush()
+        tmp_path = tf.name
+
+        cmd = [
+        str(OPA_BIN), "eval",
         "-d", str(DATA_MOVEMENT_POLICY),
-        "-d", str(FLOWS_JSON),
-        "--format","json",
-        "data.movement.allow",
-        "data.movement.reason",
-        "--input","-"
+        "-d", str(DATA_MOVEMENT_FLOWS),
+        "--format", "json",
+        # single query string with two expressions
+        "data.movement.allow; data.movement.reason",
+        "--input", str(tmp_path)
     ]
-    res = subprocess.run(cmd, input=json.dumps(payload), text=True, capture_output=True, check=True)
+
+    res = subprocess.run(
+        cmd,
+        text=True,
+        capture_output=True,
+        check=True
+    )
+
     out = json.loads(res.stdout)["result"]
 
-    # OPA returns two expressions: allow + reason
-    allow_val = out[0]["expressions"][0]["value"]
-    reason_val = out[0]["expressions"][1]["value"]
-    return {"allow": allow_val, "reason": reason_val}
+    return {
+        "allow": out[0]["expressions"][0]["value"],
+        "reason": out[0]["expressions"][1]["value"]
+    }
+
