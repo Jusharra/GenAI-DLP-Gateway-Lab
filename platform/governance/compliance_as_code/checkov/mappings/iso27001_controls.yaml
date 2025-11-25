@@ -1,0 +1,10 @@
+version: 1
+framework: ISO27001
+
+controls:
+  CKV_DLP_001: { control_id: A.8.24, name: Information security in use of cloud services }
+  CKV_DLP_002: { control_id: A.8.13, name: Information backup }
+  CKV_DLP_003: { control_id: A.8.20, name: Network security }
+  CKV_DLP_004: { control_id: A.5.15, name: Access control }
+  CKV_DLP_005: { control_id: A.8.21, name: Security of network services }
+  CKV_DLP_006: { control_id: A.5.1,  name: Policies for information security }

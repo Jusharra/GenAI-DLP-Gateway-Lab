@@ -1,0 +1,22 @@
+{
+  "pii_risk": {
+    "SSN": "high",
+    "PASSPORT": "high",
+    "DRIVERS_LICENSE": "high",
+    "CREDIT_CARD": "high",
+
+    "DOB": "medium",
+    "PHONE_NUMBER": "medium",
+    "EMAIL_ADDRESS": "medium",
+    "ADDRESS": "medium",
+
+    "IP_ADDRESS": "low"
+  },
+  "roles_allow_high": {
+    "admin": true
+  },
+  "roles_allow_medium": {
+    "admin": true,
+    "professional": true
+  }
+}

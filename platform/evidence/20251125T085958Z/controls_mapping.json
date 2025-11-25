@@ -1,0 +1,451 @@
+{
+  "generated_at": "2025-11-25T08:59:43.832670Z",
+  "total_controls": 31,
+  "missing_evidence_count": 31,
+  "missing": [
+    {
+      "control_id": "ISO27001-A.5.1",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.5.2",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.6.1",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.7.5",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.8.16",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.8.28",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.8.33",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.8.34",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.8.36",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.8.37",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO27001-A.8.38",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-4.1",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-5.2",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-6.1",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-6.3",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-8.2",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-8.3",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-8.4",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-8.5",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-8.6",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "ISO42001-8.7",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "AI-RMF-MAP-1",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "AI-RMF-MEASURE-1",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "AI-RMF-MANAGE-1",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "AI-RMF-MONITOR-1",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "OWASP-LLM-01",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "OWASP-LLM-02",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "OWASP-LLM-03",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "OWASP-LLM-04",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "OWASP-LLM-08",
+      "reason": "no evidence mapping"
+    },
+    {
+      "control_id": "OWASP-LLM-09",
+      "reason": "no evidence mapping"
+    }
+  ],
+  "controls": [
+    {
+      "id": "ISO27001-A.5.1",
+      "name": "Information Security Policies",
+      "requirement": "The organization SHALL define, approve, publish, and maintain information security policies.",
+      "domain": "Governance",
+      "applies_to": [
+        "policy-as-code",
+        "OPA guardrails",
+        "DLP workflow classification"
+      ]
+    },
+    {
+      "id": "ISO27001-A.5.2",
+      "name": "Policy Review",
+      "requirement": "Policies SHALL be reviewed at planned intervals or upon significant changes.",
+      "domain": "Governance",
+      "applies_to": [
+        "Terraform baseline updates",
+        "OPA policy revision lifecycle"
+      ]
+    },
+    {
+      "id": "ISO27001-A.6.1",
+      "name": "Roles and Responsibilities",
+      "requirement": "Security responsibilities SHALL be defined and allocated.",
+      "domain": "Governance",
+      "applies_to": [
+        "IAM least privilege for Lambda, S3, and Gateway",
+        "Evidence pipeline roles"
+      ]
+    },
+    {
+      "id": "ISO27001-A.7.5",
+      "name": "Acceptable Use of Information",
+      "requirement": "Rules for acceptable use of information and assets SHALL be defined and enforced.",
+      "domain": "People",
+      "applies_to": [
+        "DLP detection rules",
+        "Data classification labels",
+        "Restricted_PII handling"
+      ]
+    },
+    {
+      "id": "ISO27001-A.8.16",
+      "name": "Monitoring Activities",
+      "requirement": "Networks, systems, and applications SHALL be monitored for anomalous or malicious activity.",
+      "domain": "Technical",
+      "applies_to": [
+        "Lambda classification logs",
+        "Audit trails",
+        "ML drift notifications"
+      ]
+    },
+    {
+      "id": "ISO27001-A.8.28",
+      "name": "Secure Coding",
+      "requirement": "Secure coding practices SHALL be applied.",
+      "domain": "Technical",
+      "applies_to": [
+        "Python classifiers",
+        "OPA policies",
+        "Lambda handlers"
+      ]
+    },
+    {
+      "id": "ISO27001-A.8.33",
+      "name": "Data Masking",
+      "requirement": "Data masking SHALL be used to limit exposure of sensitive data.",
+      "domain": "Technical",
+      "applies_to": [
+        "Redaction hooks",
+        "PHI/PII masking pre-classification"
+      ]
+    },
+    {
+      "id": "ISO27001-A.8.34",
+      "name": "Data Leakage Prevention",
+      "requirement": "Controls SHALL be implemented to detect and block unauthorized data exfiltration.",
+      "domain": "Technical",
+      "applies_to": [
+        "DLP engine",
+        "Quarantine S3 bucket",
+        "Classification decisions"
+      ]
+    },
+    {
+      "id": "ISO27001-A.8.36",
+      "name": "Data Classification",
+      "requirement": "Information SHALL be classified according to sensitivity.",
+      "domain": "Technical",
+      "applies_to": [
+        "OPA classification policies",
+        "pii_entities.yaml"
+      ]
+    },
+    {
+      "id": "ISO27001-A.8.37",
+      "name": "Labeling Information",
+      "requirement": "Classified information SHALL be labeled appropriately.",
+      "domain": "Technical",
+      "applies_to": [
+        "AWS tags",
+        "Classification outputs (\u201cPUBLIC\u201d, \u201cINTERNAL\u201d, \u201cPII\u201d)"
+      ]
+    },
+    {
+      "id": "ISO27001-A.8.38",
+      "name": "Data Transfer",
+      "requirement": "Information transfers SHALL be encrypted, logged, and controlled.",
+      "domain": "Technical",
+      "applies_to": [
+        "Lambda ingestion \u2192 S3",
+        "Quarantine \u2192 Evidence Vault",
+        "KMS encryption"
+      ]
+    },
+    {
+      "id": "ISO42001-4.1",
+      "name": "Context of AI Use",
+      "requirement": "The organization SHALL determine internal and external issues relevant to the AI system.",
+      "domain": "AI Governance",
+      "applies_to": [
+        "DLP relevance assessment",
+        "Data boundaries for classification"
+      ]
+    },
+    {
+      "id": "ISO42001-5.2",
+      "name": "AI Policy",
+      "requirement": "An AI policy SHALL be established, approved, communicated, and maintained.",
+      "domain": "AI Governance",
+      "applies_to": [
+        "AI classifier acceptable use",
+        "Risk thresholds for classification"
+      ]
+    },
+    {
+      "id": "ISO42001-6.1",
+      "name": "AI Risk Management",
+      "requirement": "AI risks SHALL be identified, analyzed, and mitigated through controls.",
+      "domain": "AI Risk",
+      "applies_to": [
+        "Misclassification risk",
+        "False negative handling",
+        "Drift monitoring"
+      ]
+    },
+    {
+      "id": "ISO42001-6.3",
+      "name": "AI Impact Assessment",
+      "requirement": "AI impacts SHALL be assessed for safety, ethics, fairness, and security.",
+      "domain": "AI Risk",
+      "applies_to": [
+        "DLP classifier harming business processes",
+        "PHI/PII mislabeling"
+      ]
+    },
+    {
+      "id": "ISO42001-8.2",
+      "name": "AI Data Quality",
+      "requirement": "Training and inference data SHALL be accurate, complete, and protected.",
+      "domain": "AI Data Governance",
+      "applies_to": [
+        "pii_entities.yaml taxonomy",
+        "Sample sets for DLP tuning"
+      ]
+    },
+    {
+      "id": "ISO42001-8.3",
+      "name": "AI System Design",
+      "requirement": "AI systems SHALL be designed with appropriate verification and validation.",
+      "domain": "AI Dev",
+      "applies_to": [
+        "Unit tests (pytest)",
+        "OPA policy test (opa test)",
+        "End-to-end smoke tests"
+      ]
+    },
+    {
+      "id": "ISO42001-8.4",
+      "name": "AI Robustness",
+      "requirement": "AI SHALL be resilient against misuse, adversarial attacks, and errors.",
+      "domain": "AI Security",
+      "applies_to": [
+        "Prompt injection hardening",
+        "Malicious data classification",
+        "OPA evaluation safety"
+      ]
+    },
+    {
+      "id": "ISO42001-8.5",
+      "name": "AI Monitoring & Logging",
+      "requirement": "AI SHALL be continuously monitored for anomalies, drift, and failures.",
+      "domain": "MLSecOps",
+      "applies_to": [
+        "Drift detection",
+        "Classification error monitoring"
+      ]
+    },
+    {
+      "id": "ISO42001-8.6",
+      "name": "Human Oversight",
+      "requirement": "Human oversight SHALL be maintained for decisions with material impact.",
+      "domain": "Governance",
+      "applies_to": [
+        "Quarantine reviews",
+        "Human review for PHI/PII escalations"
+      ]
+    },
+    {
+      "id": "ISO42001-8.7",
+      "name": "Transparency & Explainability",
+      "requirement": "AI decision-making SHALL be explainable to relevant users.",
+      "domain": "Governance",
+      "applies_to": [
+        "Classification JSON output",
+        "Why a document was quarantined"
+      ]
+    },
+    {
+      "id": "AI-RMF-MAP-1",
+      "name": "Define AI Context & Purpose",
+      "requirement": "Organizations SHALL identify intended purposes and context of AI systems.",
+      "domain": "Governance",
+      "applies_to": [
+        "DLP classification boundaries"
+      ]
+    },
+    {
+      "id": "AI-RMF-MEASURE-1",
+      "name": "Measure AI Risks",
+      "requirement": "Organizations SHALL measure, track, and document AI risks.",
+      "domain": "Risk",
+      "applies_to": [
+        "Accuracy testing",
+        "False positive/negative metrics"
+      ]
+    },
+    {
+      "id": "AI-RMF-MANAGE-1",
+      "name": "Implement Controls for Risk",
+      "requirement": "Organizations SHALL apply controls to manage AI risks.",
+      "domain": "Controls",
+      "applies_to": [
+        "OPA hard rules",
+        "Quarantine logic",
+        "Masking requirements"
+      ]
+    },
+    {
+      "id": "AI-RMF-MONITOR-1",
+      "name": "Continuous Monitoring",
+      "requirement": "AI systems SHALL be monitored during operation.",
+      "domain": "MLSecOps",
+      "applies_to": [
+        "Drift logs",
+        "Classification anomalies"
+      ]
+    },
+    {
+      "id": "OWASP-LLM-01",
+      "name": "Prompt Injection Defense",
+      "requirement": "Systems SHALL implement safeguards to detect or prevent prompt injection.",
+      "domain": "AI Security",
+      "applies_to": [
+        "Input sanitization",
+        "DLP classification before model usage"
+      ]
+    },
+    {
+      "id": "OWASP-LLM-02",
+      "name": "Data Leakage Prevention",
+      "requirement": "LLMs SHALL NOT output sensitive information unintentionally.",
+      "domain": "AI Security",
+      "applies_to": [
+        "Classification pre-check",
+        "Redaction logic"
+      ]
+    },
+    {
+      "id": "OWASP-LLM-03",
+      "name": "Model Misuse Controls",
+      "requirement": "Organizations SHALL apply guardrails to prevent unauthorized usage.",
+      "domain": "AI Security",
+      "applies_to": [
+        "Policy-as-code restrictions"
+      ]
+    },
+    {
+      "id": "OWASP-LLM-04",
+      "name": "Supply Chain Security",
+      "requirement": "Dependencies SHALL be validated and monitored for vulnerabilities.",
+      "domain": "DevSecOps",
+      "applies_to": [
+        "pip requirements scanning",
+        "Trivy scans"
+      ]
+    },
+    {
+      "id": "OWASP-LLM-08",
+      "name": "Excessive Agency Controls",
+      "requirement": "LLMs SHALL NOT be granted more privileges than needed.",
+      "domain": "AI Security",
+      "applies_to": [
+        "Lambda IAM least privilege",
+        "S3 scoped access"
+      ]
+    },
+    {
+      "id": "OWASP-LLM-09",
+      "name": "Secure Output Handling",
+      "requirement": "LLM outputs SHALL be validated, sanitized, or restricted.",
+      "domain": "AI Security",
+      "applies_to": [
+        "Classification result handling",
+        "Post-processing sanitization"
+      ]
+    }
+  ]
+}

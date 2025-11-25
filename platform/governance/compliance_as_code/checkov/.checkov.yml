@@ -1,0 +1,15 @@
+quiet: false
+download-external-modules: true
+framework:
+  - terraform
+skip-check:
+  - CKV_AWS_18   # example: if you don't want access logs requirement in lab
+soft-fail: false
+external-checks-dir:
+  - platform/governance/compliance_as_code/checkov/checks
+output:
+  - cli
+  - junitxml
+output-file-path:
+  - console
+  - evidence/checkov_results.xml

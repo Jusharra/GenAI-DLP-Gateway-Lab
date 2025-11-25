@@ -1,0 +1,13 @@
+version: 1
+framework: ISO42001
+
+controls:
+  CKV_DLP_001:
+    control_id: 8.5
+    name: AI system security & data protection
+  CKV_DLP_004:
+    control_id: 8.6
+    name: AI system monitoring & safeguards
+  CKV_DLP_006:
+    control_id: 6.2
+    name: Documented controls for AI risk treatment

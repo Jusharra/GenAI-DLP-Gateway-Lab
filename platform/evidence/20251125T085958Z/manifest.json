@@ -1,0 +1,35 @@
+{
+  "generated_at": "20251125T085958Z",
+  "files": [
+    {
+      "name": "pytest.xml",
+      "missing": true,
+      "source": "C:\\Users\\kreat\\venv\\GenAI-DLP-Gateway-Lab\\platform\\artifacts\\pytest.xml"
+    },
+    {
+      "name": "opa.json",
+      "missing": true,
+      "source": "C:\\Users\\kreat\\venv\\GenAI-DLP-Gateway-Lab\\platform\\artifacts\\opa.json"
+    },
+    {
+      "name": "checkov.json",
+      "missing": true,
+      "source": "C:\\Users\\kreat\\venv\\GenAI-DLP-Gateway-Lab\\platform\\artifacts\\checkov.json"
+    },
+    {
+      "name": "tfplan.json",
+      "missing": true,
+      "source": "C:\\Users\\kreat\\venv\\GenAI-DLP-Gateway-Lab\\platform\\artifacts\\tfplan.json"
+    },
+    {
+      "name": "conftest.json",
+      "missing": true,
+      "source": "C:\\Users\\kreat\\venv\\GenAI-DLP-Gateway-Lab\\platform\\artifacts\\conftest.json"
+    },
+    {
+      "name": "controls_mapping.json",
+      "sha256": "da8c2f672d4740a1967a802f24c0df62bddd2c89ddf68cbec3406e6eeb8ad207",
+      "source": "C:\\Users\\kreat\\venv\\GenAI-DLP-Gateway-Lab\\platform\\evidence\\controls_mapping.json"
+    }
+  ]
+}

@@ -136,3 +136,30 @@ def lambda_handler(event, context):
 
     # RAG lambda already returns a JSON-friendly structure
     return build_response(200, rag_payload)
+
+from dlp_utils import detect_pii, classify_text, check_data_movement, evaluate_dlp_policy
+
+def handle_ingress(prompt_text, user_role="anonymous"):
+    entities = detect_pii(prompt_text)
+    label = classify_text(entities)
+
+    movement = check_data_movement(
+        "dlp_gateway",
+        "rag_orchestrator",
+        {
+            "classification_label": label,
+            "policy_decision": {"action": "allow"},
+            "redaction_applied": label not in {"RESTRICTED_PHI","RESTRICTED_PII"}
+        }
+    )
+
+    decision = evaluate_dlp_policy(
+        direction="ingress",
+        user_role=user_role,
+        text=prompt_text,
+        entities=entities,
+        classification_label=label,
+        movement=movement
+    )
+
+    return decision, entities, label

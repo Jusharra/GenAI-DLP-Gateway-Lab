@@ -1,64 +1,103 @@
-include:
-  - local: "platform/devsecops/gitlab/base-ci.yml"
-
 stages:
-  - build
-  - validate
-  - test
-  - security
-  - policy-check
-  - deploy
+  - lint
+  - unit_test
+  - opa_test
+  - iac_scan
+  - plan
   - evidence
 
-build_lambda_packages:
-  stage: build
-  image: python:3.13
+variables:
+  TF_ROOT: "platform/iac"
+  PY_ROOT: "platform/devsecops/python"
+  OPA_POLICIES: "platform/governance/policies_as_code/opa"
+  CHECKOV_OUTPUT: "artifacts/checkov.json"
+  OPA_OUTPUT: "artifacts/opa.json"
+  PYTEST_OUTPUT: "artifacts/pytest.xml"
+  PLAN_JSON: "artifacts/tfplan.json"
+
+default:
+  image: alpine:3.20
   before_script:
-    - apt-get update
-    - apt-get install -y zip
+    - apk add --no-cache bash curl jq python3 py3-pip unzip
+
+lint:python:
+  stage: lint
+  image: python:3.11-alpine
   script:
-    - mkdir -p $PY_ROOT/package
-    - pip install -r $PY_ROOT/requirements-dev.txt -t $PY_ROOT/package/
-    - cp $PY_ROOT/dlp_handler.py $PY_ROOT/rag_handler.py $PY_ROOT/package/
-    - cd $PY_ROOT/package
-    - mkdir -p ../dist
-    - zip -r ../dist/dlp_package.zip dlp_handler.py
-    - zip -r ../dist/rag_package.zip rag_handler.py
+    - cd $PY_ROOT
+    - pip install -r requirements-dev.txt
+    - python -m compileall .
   artifacts:
-    paths:
-      - $PY_ROOT/dist/
-  only:
-    - main
-    - master
-    - develop
-    - merge_requests
+    when: always
+    paths: [artifacts/]
 
-
-validate_terraform:
-  extends: .validate_tf_template
-  only: [main, master, develop, merge_requests]
-
-test_python:
-  extends: .test_python_template
-  only: [main, master, develop, merge_requests]
-
-security_scan:
-  stage: security
-  image: Python 3.13.5
+unit_test:python:
+  stage: unit_test
+  image: python:3.11-alpine
   script:
-    - echo "security_scan placeholder"
-  allow_failure: true
-  only: [main, master, develop, merge_requests]
+    - cd $PY_ROOT
+    - pip install -r requirements-dev.txt
+    - pytest -q --junitxml=../../$PYTEST_OUTPUT
+  artifacts:
+    when: always
+    paths: [artifacts/]
 
+opa_test:
+  stage: opa_test
+  image: openpolicyagent/opa:1.10.1
+  script:
+    - opa test $OPA_POLICIES -v | tee $OPA_OUTPUT
+  artifacts:
+    when: always
+    paths: [artifacts/]
 
-policy_check:
-  extends: .policy_check_template
-  only: [main, master, develop, merge_requests]
+iac_scan:checkov:
+  stage: iac_scan
+  image: bridgecrew/checkov:latest
+  script:
+    - checkov -d $TF_ROOT -o json > $CHECKOV_OUTPUT
+    - jq '.summary' $CHECKOV_OUTPUT
+  artifacts:
+    when: always
+    paths: [artifacts/]
 
-deploy:
-  extends: .deploy_tf_template
-  only: [main, master]
+plan:terraform:
+  stage: plan
+  image: hashicorp/terraform:1.9
+  script:
+    - cd $TF_ROOT
+    - terraform init
+    - terraform validate
+    - terraform plan -out=tfplan
+    - terraform show -json tfplan > ../../$PLAN_JSON
+  artifacts:
+    when: always
+    paths: [artifacts/]
 
-generate_evidence:
-  extends: .evidence_template
-  only: [main, master]
+# Policy gate: OPA evaluates terraform plan JSON
+policy_gate:
+  stage: plan
+  image: openpolicyagent/conftest:v0.57.0
+  script:
+    - conftest test $PLAN_JSON -p $OPA_POLICIES/terraform --output json | tee artifacts/conftest.json
+  dependencies:
+    - plan:terraform
+  artifacts:
+    when: always
+    paths: [artifacts/]
+
+evidence_bundle:
+  stage: evidence
+  image: python:3.11-alpine
+  script:
+    - pip install pyyaml
+    - python platform/devsecops/scripts/generate_evidence_report.py
+  dependencies:
+    - unit_test:python
+    - opa_test
+    - iac_scan:checkov
+    - plan:terraform
+    - policy_gate
+  artifacts:
+    when: always
+    paths: [evidence/]

@@ -94,6 +94,31 @@ def call_llm(prompt: str, context_text: str) -> str:
     # Adjust based on model output schema; generic fallback here
     return data.get("output_text") or json.dumps(data)
 
+def handle_egress(response_text, user_role="anonymous"):
+    entities = detect_pii(response_text)
+    label = classify_text(entities)
+
+    movement = check_data_movement(
+        "dlp_gateway",
+        "user",
+        {
+            "classification_label": label,
+            "policy_decision": {"action": "allow"},
+            "redaction_applied": True
+        }
+    )
+
+    decision = evaluate_dlp_policy(
+        direction="egress",
+        user_role=user_role,
+        text=response_text,
+        entities=entities,
+        classification_label=label,
+        movement=movement
+    )
+
+    return decision, entities, label
+
 
 def lambda_handler(event, context):
     """

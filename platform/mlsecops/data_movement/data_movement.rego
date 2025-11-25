@@ -16,7 +16,7 @@ default reason := "no matching flow"
 #
 # data.flows is loaded from flows.yaml (converted to json)
 
-allow {
+allow if {
   some f in data.flows
   f.from == input.from
   f.to == input.to
@@ -24,12 +24,12 @@ allow {
   conditions_ok(f.conditions, input.state)
 }
 
-reason := r {
+reason := r if {
   not allow
   r := deny_reason
 }
 
-deny_reason := msg {
+deny_reason := msg if {
   some f in data.flows
   f.from == input.from
   f.to == input.to
@@ -37,49 +37,52 @@ deny_reason := msg {
 }
 
 # If no conditions, it's allowed
-conditions_ok(conds, state) {
+conditions_ok(conds, state) if {
   conds == null
 }
 
-conditions_ok(conds, state) {
+conditions_ok(conds, state) if {
   conds != null
   not condition_failed(conds, state)
 }
 
-condition_failed(conds, state) {
+condition_failed(conds, state) if {
   some c in conds
   violates(c, state)
 }
 
-condition_failure(conds, state) = out {
+condition_failure(conds, state) = out if {
   some c in conds
   violates(c, state)
   out := c
 }
 
 # --- Condition evaluators ---
-violates(c, state) {
+violates(c, state) if {
   startswith(c, "classification_label not_in")
   labels := extract_list(c)
   state.classification_label in labels
 }
 
-violates(c, state) {
+violates(c, state) if {
   c == "redaction_applied == true"
   not state.redaction_applied
 }
 
-violates(c, state) {
+violates(c, state) if {
   startswith(c, "policy_decision.action in")
   actions := extract_list(c)
   not state.policy_decision.action in actions
 }
 
 # crude list parser: [A, B, C]
-extract_list(c) = xs {
+extract_list(c) := xs if {
   start := indexof(c, "[")
   end := indexof(c, "]")
   inner := substring(c, start+1, end-start-1)
   parts := split(inner, ",")
-  xs := { trim(p) | p := parts[_] }
+  xs := { trim_space(p) | p := parts[_] }
 }
+
+
+

@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Literal, Optional
 import boto3
 
 ROOT = Path(__file__).resolve().parent
-
 OPA_BIN = os.getenv("OPA_BIN", "opa")
 
 
@@ -32,8 +31,6 @@ def find_repo_root(start: Path) -> Path:
     return start.parent  # fallback
 
 REPO_ROOT = find_repo_root(Path(__file__).resolve())
-
-REPO_ROOT = ROOT.parents[2]
 
 OPA_CLASSIFY_POLICY = (
     REPO_ROOT
@@ -249,52 +246,105 @@ def get_evidence_bucket_from_env() -> str:
         raise RuntimeError("EVIDENCE_BUCKET_NAME environment variable is required")
     return bucket
 
-DATA_MOVEMENT_POLICY = ROOT.parents[1] / "mlsecops" / "data_movement" / "data_movement.rego"
-FLOWS_JSON          = ROOT.parents[1] / "mlsecops" / "data_movement" / "flows.json"
+# --- Data Movement as Code (OPA) ---
+DATA_MOVEMENT_POLICY = (
+    REPO_ROOT / "platform" / "mlsecops" / "data_movement" / "data_movement.rego"
+)
+FLOWS_JSON = (
+    REPO_ROOT / "platform" / "mlsecops" / "data_movement" / "flows.json"
+)
+
+# Back-compat alias (in case any script references the old name)
+DATA_MOVEMENT_FLOWS = FLOWS_JSON
+
 
 def check_data_movement(src: str, dst: str, state: dict) -> dict:
     """
     Enforce Data Movement as Code.
     Returns {"allow": bool, "reason": str}
     """
-    if not OPA_BIN:
-        raise RuntimeError(
-            "OPA binary not found. Set OPA_BIN=C:\\Tools\\opa\\opa.exe"
-        )
-
     payload = {
         "from": src,
         "to": dst,
         "state": state or {}
     }
 
-    # --- Windows-safe: write input to temp file ---
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tf:
+    # --- Windows-safe temp input file (avoid stdin "open -" issues) ---
+    import tempfile, os
+    with tempfile.NamedTemporaryFile("w", delete=False, suffix=".json") as tf:
         json.dump(payload, tf)
-        tf.flush()
         tmp_path = tf.name
 
-        cmd = [
-        str(OPA_BIN), "eval",
+    # OPA v1 expects ONE query string
+    query = "data.movement.allow; data.movement.reason"
+
+    cmd = [
+        OPA_BIN, "eval",
         "-d", str(DATA_MOVEMENT_POLICY),
-        "-d", str(DATA_MOVEMENT_FLOWS),
+        "-d", str(FLOWS_JSON),
         "--format", "json",
-        # single query string with two expressions
-        "data.movement.allow; data.movement.reason",
-        "--input", str(tmp_path)
+        query,
+        "--input", tmp_path
     ]
 
-    res = subprocess.run(
-        cmd,
-        text=True,
-        capture_output=True,
-        check=True
-    )
+    try:
+        res = subprocess.run(
+            cmd,
+            text=True,
+            capture_output=True,
+            check=True
+        )
+        output = json.loads(res.stdout)
 
-    out = json.loads(res.stdout)["result"]
+        # Defensive parse: if OPA returns undefined/empty, no "result" key
+        if "result" not in output or not output["result"]:
+            return {"allow": False, "reason": "OPA returned undefined result"}
 
-    return {
-        "allow": out[0]["expressions"][0]["value"],
-        "reason": out[0]["expressions"][1]["value"]
+        exprs = output["result"][0]["expressions"]
+        allow_val = exprs[0]["value"]
+        reason_val = exprs[1]["value"]
+        return {"allow": allow_val, "reason": reason_val}
+
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+
+
+OPA_DLP_POLICY = ROOT.parents[2] / "governance" / "policies_as_code" / "opa" / "dlp_runtime" / "dlp_runtime.rego"
+OPA_DLP_DATA   = ROOT.parents[2] / "governance" / "policies_as_code" / "opa" / "dlp_runtime" / "dlp_runtime_data.json"
+
+def evaluate_dlp_policy(direction: str, user_role: str, text: str, entities: list, classification_label: str, movement: dict, context=None):
+    """
+    direction: ingress|egress
+    returns OPA decision dict {"action","reason","labels","entities"}
+    """
+    context = context or {"channel":"chat"}
+    payload = {
+        "direction": direction,
+        "user": {"role": user_role},
+        "text": text,
+        "entities": entities,
+        "classification_label": classification_label,
+        "movement": movement,
+        "context": context
     }
+
+    cmd = [
+        "opa","eval",
+        "-d", str(OPA_DLP_POLICY),
+        "-d", str(OPA_DLP_DATA),
+        "--format","json",
+        "data.dlp.runtime.decision",
+        "--input","-"
+    ]
+    res = subprocess.run(cmd, input=json.dumps(payload), text=True, capture_output=True, check=True)
+    out = json.loads(res.stdout)
+    return out["result"][0]["expressions"][0]["value"]
+
+
+
+
+
 

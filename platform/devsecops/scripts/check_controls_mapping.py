@@ -1,52 +1,43 @@
-import json
+# This validates your unified catalog has artifacts tied to each control.
+import json, yaml
 from pathlib import Path
-
-import yaml
-
+from datetime import datetime
 
 ROOT = Path(__file__).resolve().parents[2]
-GOVERNANCE_DIR = ROOT / "platform" / "governance"
-REPORTS_DIR = ROOT / "reports"
-REPORTS_DIR.mkdir(exist_ok=True, parents=True)
+CATALOG = ROOT / "governance" / "control_catalog" / "unified_controls.yaml"
+OUT = ROOT / "evidence" / "controls_mapping.json"
 
+def load_catalog():
+    with open(CATALOG, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
 
-def load_yaml(path: Path):
-  with path.open("r", encoding="utf-8") as f:
-    return yaml.safe_load(f)
-
+def validate_controls(controls):
+    missing = []
+    for c in controls:
+        if not c.get("evidence"):
+            missing.append({"control_id": c["id"], "reason": "no evidence mapping"})
+            continue
+        ev = c["evidence"]
+        if not any(ev.get(k) for k in ["opa_policy", "checkov_check", "terraform_guardrail", "test_case"]):
+            missing.append({"control_id": c["id"], "reason": "evidence fields empty"})
+    return missing
 
 def main():
-  soc2_path = GOVERNANCE_DIR / "control_catalog" / "soc2_controls.yaml"
-  risk_path = GOVERNANCE_DIR / "risk_register" / "risk_register.yaml"
+    data = load_catalog()
+    controls = data["controls"]
 
-  soc2 = load_yaml(soc2_path)
-  risks = load_yaml(risk_path)
+    missing = validate_controls(controls)
+    report = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "total_controls": len(controls),
+        "missing_evidence_count": len(missing),
+        "missing": missing,
+        "controls": controls,
+    }
 
-  controls = {c["id"]: c for c in soc2.get("controls", [])}
-  risk_items = risks.get("risks", [])
-
-  # Simple mapping: which risks reference which controls
-  mapping = []
-  for r in risk_items:
-    for fw in r.get("frameworks", []):
-      if "SOC 2:" in fw:
-        control_id = fw.split("SOC 2:")[-1].strip()
-        if control_id in controls:
-          mapping.append(
-            {
-              "risk_id": r["id"],
-              "risk_title": r["title"],
-              "control_id": control_id,
-              "control_name": controls[control_id]["name"],
-            }
-          )
-
-  out = REPORTS_DIR / "controls_mapping.json"
-  with out.open("w", encoding="utf-8") as f:
-    json.dump(mapping, f, indent=2)
-
-  print(f"[check_controls_mapping] Wrote {len(mapping)} mappings to {out}")
-
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(json.dumps(report, indent=2))
+    print(f"[OK] Control mapping report -> {OUT}")
 
 if __name__ == "__main__":
-  main()
+    main()

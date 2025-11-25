@@ -1,0 +1,23 @@
+version: 2025
+framework: OWASP_LLM_TOP10
+
+controls:
+  CKV_DLP_001:
+    threat: LLM06:2025 Sensitive Information Disclosure
+    rationale: KMS encryption prevents storage-layer leakage.
+
+  CKV_DLP_004:
+    threat: LLM01:2025 Prompt Injection
+    rationale: Runtime OPA guardrails enforce deterministic filtering. :contentReference[oaicite:3]{index=3}
+
+  CKV_DLP_005:
+    threat: LLM02:2025 Insecure Output Handling
+    rationale: Private API reduces direct manipulation and exposure.
+
+  CKV_DLP_006:
+    threat: LLM07:2025 System Prompt Leakage
+    rationale: Policies must exist outside prompts; deterministic enforcement. :contentReference[oaicite:4]{index=4}
+
+  CKV_DLP_002:
+    threat: LLM08:2025 Vector and Embedding Weaknesses
+    rationale: Versioned evidence + movement guards help detect poisoning. :contentReference[oaicite:5]{index=5}
