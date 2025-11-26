@@ -1,6 +1,18 @@
 import json
-from dlp_utils import classify_text
-from detect_utils import detect_entities   # <-- make sure this is here!
+import os
+import sys
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Ensure parent (python dir) is on sys.path
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from dlp_utils import classify_text, detect_entities
+
+load_dotenv()
+
 
 samples = [
     "My name is Sarah Johnson and my SSN is 555-22-1234.",

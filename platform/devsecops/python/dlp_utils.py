@@ -1,4 +1,5 @@
 import json
+import re
 import logging
 import os
 import uuid
@@ -343,6 +344,22 @@ def evaluate_dlp_policy(direction: str, user_role: str, text: str, entities: lis
     out = json.loads(res.stdout)
     return out["result"][0]["expressions"][0]["value"]
 
+def detect_entities(text: str) -> List[Dict[str, Any]]:
+    """
+    Very small regex-based detector used for smoke tests.
+    Returns a list of {"type": ..., "score": ...}.
+    """
+    patterns = [
+        ("SSN", r"\b\d{3}-\d{2}-\d{4}\b"),
+        ("EMAIL_ADDRESS", r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
+        ("MRN", r"\b\d{6,}\b"),
+    ]
+
+    entities: List[Dict[str, Any]] = []
+    for etype, pat in patterns:
+        for _m in re.finditer(pat, text):
+            entities.append({"type": etype, "score": 0.99})
+    return entities
 
 
 

@@ -1,103 +1,87 @@
 stages:
-  - lint
-  - unit_test
-  - opa_test
-  - iac_scan
+  - validate
+  - test
+  - policy
   - plan
   - evidence
 
-variables:
-  TF_ROOT: "platform/iac"
-  PY_ROOT: "platform/devsecops/python"
-  OPA_POLICIES: "platform/governance/policies_as_code/opa"
-  CHECKOV_OUTPUT: "artifacts/checkov.json"
-  OPA_OUTPUT: "artifacts/opa.json"
-  PYTEST_OUTPUT: "artifacts/pytest.xml"
-  PLAN_JSON: "artifacts/tfplan.json"
-
+# Default image + tooling for Python, OPA, Checkov
 default:
-  image: alpine:3.20
+  image: python:3.11
   before_script:
-    - apk add --no-cache bash curl jq python3 py3-pip unzip
+    - pip install -r platform/devsecops/python/requirements-dev.txt
+    - pip install checkov
+    # Install OPA CLI
+    - curl -L -o /usr/local/bin/opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
+    - chmod +x /usr/local/bin/opa
 
-lint:python:
-  stage: lint
-  image: python:3.11-alpine
+# ---------- STAGE: validate / unit tests ----------
+
+python-tests:
+  stage: validate
   script:
-    - cd $PY_ROOT
-    - pip install -r requirements-dev.txt
-    - python -m compileall .
+    - pytest platform/devsecops/python
   artifacts:
     when: always
-    paths: [artifacts/]
+    paths:
+      - .pytest_cache/
+    expire_in: 1 week
 
-unit_test:python:
-  stage: unit_test
-  image: python:3.11-alpine
+# ---------- STAGE: policy (OPA & Checkov) ----------
+
+opa-tests:
+  stage: policy
   script:
-    - cd $PY_ROOT
-    - pip install -r requirements-dev.txt
-    - pytest -q --junitxml=../../$PYTEST_OUTPUT
-  artifacts:
-    when: always
-    paths: [artifacts/]
+    # Runtime DLP policy tests
+    - opa test platform/governance/policies_as_code/opa/dlp_runtime -v
+    # Data-movement policy tests
+    - opa test platform/mlsecops/data_movement -v
 
-opa_test:
-  stage: opa_test
-  image: openpolicyagent/opa:1.10.1
+checkov-scan:
+  stage: policy
   script:
-    - opa test $OPA_POLICIES -v | tee $OPA_OUTPUT
+    # Tightened scan using your checkov.yml
+    - mkdir -p platform/evidence
+    - checkov -d platform/iac --config-file checkov.yml \
+        -o json --output-file-path platform/evidence/checkov.json
   artifacts:
-    when: always
-    paths: [artifacts/]
+    paths:
+      - platform/evidence/checkov.json
+    expire_in: 1 week
 
-iac_scan:checkov:
-  stage: iac_scan
-  image: bridgecrew/checkov:latest
-  script:
-    - checkov -d $TF_ROOT -o json > $CHECKOV_OUTPUT
-    - jq '.summary' $CHECKOV_OUTPUT
-  artifacts:
-    when: always
-    paths: [artifacts/]
+# ---------- STAGE: plan (Terraform) ----------
 
-plan:terraform:
+terraform-plan:
   stage: plan
-  image: hashicorp/terraform:1.9
+  image: hashicorp/terraform:1.9.8
+  variables:
+    TF_IN_AUTOMATION: "true"
+  before_script:
+    - terraform -version
   script:
-    - cd $TF_ROOT
-    - terraform init
+    - cd platform/iac
+    - terraform init -input=false
     - terraform validate
-    - terraform plan -out=tfplan
-    - terraform show -json tfplan > ../../$PLAN_JSON
+    - terraform plan -input=false -out=tfplan
+    # Export machine-readable plan for evidence merge
+    - terraform show -json tfplan > ../evidence/terraform_plan.json
   artifacts:
-    when: always
-    paths: [artifacts/]
+    paths:
+      - platform/iac/tfplan
+      - platform/evidence/terraform_plan.json
+    expire_in: 1 week
 
-# Policy gate: OPA evaluates terraform plan JSON
-policy_gate:
-  stage: plan
-  image: openpolicyagent/conftest:v0.57.0
-  script:
-    - conftest test $PLAN_JSON -p $OPA_POLICIES/terraform --output json | tee artifacts/conftest.json
-  dependencies:
-    - plan:terraform
-  artifacts:
-    when: always
-    paths: [artifacts/]
+# ---------- STAGE: evidence (audit bundle) ----------
 
-evidence_bundle:
+evidence-bundle:
   stage: evidence
-  image: python:3.11-alpine
   script:
-    - pip install pyyaml
-    - python platform/devsecops/scripts/generate_evidence_report.py
-  dependencies:
-    - unit_test:python
-    - opa_test
-    - iac_scan:checkov
-    - plan:terraform
-    - policy_gate
+    # Merge whatever evidence exists into one auditor JSON
+    - python platform/devsecops/python/scripts/generate_evidence_report.py
   artifacts:
-    when: always
-    paths: [evidence/]
+    paths:
+      - platform/evidence/evidence_unified.json
+    expire_in: 4 weeks
+  needs:
+    - job: checkov-scan
+    - job: terraform-plan

@@ -1,0 +1,9 @@
+{
+  "from": "rag_orchestrator",
+  "to": "pinecone",
+  "state": {
+    "classification_label": "INTERNAL",
+    "policy_decision": { "action": "allow" },
+    "redaction_applied": true
+  }
+}

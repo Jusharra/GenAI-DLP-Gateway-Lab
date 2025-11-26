@@ -1,0 +1,68 @@
+# platform/governance/control_catalog/opa_to_unified_controls.yaml
+# Maps OPA policy packages/rules to your unified control IDs.
+# Adjust unified_controls to match IDs in unified_controls.yaml.
+
+opa_policies:
+  # ========= RUNTIME DLP POLICIES =========
+  - id: OPA-DLP-RUNTIME-DECISION
+    description: "Runtime DLP decision engine (ingress/egress text, PII/PHI, roles)"
+    package: dlp.runtime
+    rule: decision
+    unified_controls:
+      - ISO27001-A.9.1.1        # Access control policy
+      - ISO27001-A.9.2.3        # Management of privileged access rights
+      - ISO27001-A.18.1.3       # Protection of records / logging
+      - ISO42001-6.3.2          # Risk treatment for AI data processing
+      - OWASP-LLM-01            # (Prompt injection / sensitive data exposure)
+
+  - id: OPA-DLP-DATA-MOVEMENT
+    description: "Data movement guardrails between RAG components"
+    package: data.movement
+    rule: allow
+    unified_controls:
+      - ISO27001-A.13.2.1       # Information transfer policies and procedures
+      - ISO27001-A.13.2.3       # Electronic messaging / data flows
+      - ISO42001-8.4.3          # AI data lineage and data flow controls
+      - OWASP-LLM-08            # Supply chain / data routing
+
+  # ========= TERRAFORM PLAN GUARDRAILS (OPA) =========
+  - id: OPA-TF-ISO27001-ACCESS
+    description: "Terraform guardrails for IAM / access management"
+    package: terraform.controls.iso27001_access
+    rule: deny
+    unified_controls:
+      - ISO27001-A.9.1.1
+      - ISO27001-A.9.2.1
+
+  - id: OPA-TF-ISO27001-CHANGE-SUPPLIER
+    description: "Guardrails for changes to external suppliers / services"
+    package: terraform.controls.iso27001_change_supplier
+    rule: deny
+    unified_controls:
+      - ISO27001-A.15.1.1       # Information security policy for supplier relationships
+      - ISO27001-A.15.2.1       # Monitoring and review of supplier services
+
+  - id: OPA-TF-ISO27001-CRYPTO-LOGGING
+    description: "KMS and logging baselines for evidence vault and CloudTrail"
+    package: terraform.controls.iso27001_crypto_logging
+    rule: deny
+    unified_controls:
+      - ISO27001-A.10.1.1       # Policy on the use of cryptographic controls
+      - ISO27001-A.12.4.1       # Event logging
+
+  - id: OPA-TF-ISO42001-AI-RISK-DATA
+    description: "AI data risk controls for RAG infra (logging, data at rest)"
+    package: terraform.controls.iso42001_ai_risk_data
+    rule: deny
+    unified_controls:
+      - ISO42001-6.3.2          # Risk treatment
+      - ISO42001-8.2.3          # Data governance for AI systems
+
+  - id: OPA-TF-GENERAL-GUARDRAILS
+    description: "Top-level Terraform guardrails policy aggregator"
+    package: terraform_guardrails
+    rule: deny
+    unified_controls:
+      - ISO27001-A.6.1.5        # Information security in project management
+      - ISO27001-A.12.1.2       # Change management
+      - ISO42001-5.3.1          # AI governance roles and responsibilities

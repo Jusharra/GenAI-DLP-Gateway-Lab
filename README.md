@@ -1,4 +1,5 @@
-📘 GenAI DLP Gateway Lab
+📘 AI Prompt & Response DLP Filter for GenAI / RAG Pipelines
+GenAI DLP Gateway Lab
 A Zero-Trust, Policy-Driven DLP Enforcement Layer for RAG & LLM Pipelines
 
 A hands-on, 1–2 hour AWS lab designed to showcase enterprise-grade AI governance, DLP enforcement, and compliance-as-code guardrails.
@@ -10,7 +11,7 @@ Zero-trust DLP enforcement for GenAI — Every prompt and every LLM/RAG response
 
 Policy-as-code guardrails prevent insecure deployments — OPA/Rego blocks Terraform applies if the DLP gateway, evidence logging, or IAM restrictions aren’t correctly configured.
 
-Audit-ready architecture — All DLP decisions, masks, blocks, and logs are stored in a KMS-encrypted evidence vault and mapped to SOC 2, ISO 27001, ISO 42001, and HIPAA controls.
+Audit-ready architecture — All DLP decisions, masks, blocks, and logs are stored in a KMS-encrypted evidence vault and mapped to ISO 27001, ISO 42001, and HIPAA controls.
 
 📂 Repository Structure
 

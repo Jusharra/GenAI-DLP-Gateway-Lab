@@ -1,44 +1,51 @@
-# Checkov check_id -> unified control IDs (ISO 27001/42001 only for this lab)
+# platform/governance/control_catalog/checkov_to_unified_controls.yaml
+# Maps Checkov check IDs to your unified control IDs.
 
-CKV_AWS_18:
-  title: "S3 access logging enabled"
-  unified_controls:
-    - ISO27001:A.8.15
-    - ISO27001:A.8.16
-    - ISO42001:9.1
+checkov_mappings:
+  - check_id: CKV_AWS_252
+    description: "Ensure CloudTrail defines an SNS Topic"
+    unified_controls:
+      - ISO27001-A.12.4.1       # Event logging
+      - ISO27001-A.16.1.2       # Reporting information security events
 
-CKV_AWS_21:
-  title: "S3 versioning enabled"
-  unified_controls:
-    - ISO27001:A.8.32
-    - ISO27001:A.5.15
+  - check_id: CKV2_AWS_10
+    description: "Ensure CloudTrail trails are integrated with CloudWatch Logs"
+    unified_controls:
+      - ISO27001-A.12.4.1
+      - ISO27001-A.12.4.3       # Administrator and operator logs
 
-CKV_AWS_144:
-  title: "S3 public access block"
-  unified_controls:
-    - ISO27001:A.5.15
-    - ISO27001:A.8.2
-    - ISO42001:8.4
+  - check_id: CKV2_AWS_64
+    description: "Ensure KMS key Policy is defined"
+    unified_controls:
+      - ISO27001-A.10.1.1
+      - ISO27001-A.9.1.2        # Access to networks and network services
 
-CKV_AWS_145:
-  title: "S3 encryption enabled"
-  unified_controls:
-    - ISO27001:A.8.24
-    - ISO42001:8.4
-    - ISO42001:9.1
+  - check_id: CKV2_AWS_62
+    description: "Ensure S3 buckets should have event notifications enabled"
+    unified_controls:
+      - ISO27001-A.12.4.1
+      - ISO27001-A.16.1.1       # Responsibilities and procedures
 
-CKV_AWS_19:
-  title: "No admin * IAM privileges"
-  unified_controls:
-    - ISO27001:A.5.15
-    - ISO27001:A.8.2
-    - ISO27001:A.5.16
-    - ISO42001:6.1
-    - ISO42001:8.2
+  - check_id: CKV2_AWS_6
+    description: "Ensure that an S3 bucket has a Public Access block"
+    unified_controls:
+      - ISO27001-A.9.4.1        # Information access restriction
+      - ISO27001-A.13.1.1       # Network controls
 
-CKV_AWS_62:
-  title: "CloudTrail enabled"
-  unified_controls:
-    - ISO27001:A.8.15
-    - ISO27001:A.8.16
-    - ISO42001:9.1
+  - check_id: CKV2_AWS_61
+    description: "Ensure that an S3 bucket has a lifecycle configuration"
+    unified_controls:
+      - ISO27001-A.18.1.3       # Protection of records
+      - ISO27001-A.11.2.7       # Secure disposal or re-use
+
+  - check_id: CKV_AWS_18
+    description: "Ensure the S3 bucket has access logging enabled"
+    unified_controls:
+      - ISO27001-A.12.4.1
+      - ISO27001-A.15.1.3
+
+  - check_id: CKV_AWS_144
+    description: "Ensure that S3 bucket has cross-region replication enabled"
+    unified_controls:
+      - ISO27001-A.17.1.2       # Implementing continuity solutions
+      - ISO27001-A.17.2.1       # Availability of information processing facilities

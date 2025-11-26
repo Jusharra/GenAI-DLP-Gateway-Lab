@@ -2,18 +2,15 @@
   "flows": [
     {
       "id": "FLOW-INGRESS-001",
-      "name": "Prompt \u00e2\u2020\u2019 DLP Gateway",
+      "name": "Prompt → DLP Gateway",
       "from": "user",
       "to": "dlp_gateway",
       "allowed": true,
-      "requires": [
-        "classification",
-        "policy_eval"
-      ]
+      "requires": ["classification", "policy_eval"]
     },
     {
       "id": "FLOW-INGRESS-002",
-      "name": "DLP Gateway \u00e2\u2020\u2019 RAG Orchestrator",
+      "name": "DLP Gateway → RAG Orchestrator",
       "from": "dlp_gateway",
       "to": "rag_orchestrator",
       "allowed": true,
@@ -24,7 +21,7 @@
     },
     {
       "id": "FLOW-INGRESS-003",
-      "name": "RAG Orchestrator \u00e2\u2020\u2019 Pinecone Retrieval",
+      "name": "RAG Orchestrator → Pinecone Retrieval",
       "from": "rag_orchestrator",
       "to": "pinecone",
       "allowed": true,
@@ -35,7 +32,7 @@
     },
     {
       "id": "FLOW-INGRESS-004",
-      "name": "RAG Orchestrator \u00e2\u2020\u2019 LLM",
+      "name": "RAG Orchestrator → LLM",
       "from": "rag_orchestrator",
       "to": "llm",
       "allowed": true,
@@ -46,7 +43,7 @@
     },
     {
       "id": "FLOW-EGRESS-001",
-      "name": "LLM \u00e2\u2020\u2019 DLP Gateway",
+      "name": "LLM → DLP Gateway",
       "from": "llm",
       "to": "dlp_gateway",
       "allowed": true,
@@ -58,7 +55,7 @@
     },
     {
       "id": "FLOW-EGRESS-002",
-      "name": "DLP Gateway \u00e2\u2020\u2019 User",
+      "name": "DLP Gateway → User",
       "from": "dlp_gateway",
       "to": "user",
       "allowed": true,
@@ -68,7 +65,7 @@
     },
     {
       "id": "FLOW-EVIDENCE-001",
-      "name": "DLP Gateway \u00e2\u2020\u2019 Evidence Vault",
+      "name": "DLP Gateway → Evidence Vault",
       "from": "dlp_gateway",
       "to": "evidence_s3",
       "allowed": true,

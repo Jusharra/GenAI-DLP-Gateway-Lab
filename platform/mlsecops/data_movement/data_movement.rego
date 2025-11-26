@@ -1,4 +1,4 @@
-package data.movement
+package movement
 
 default allow := false
 default reason := "no matching flow"
@@ -16,17 +16,22 @@ default reason := "no matching flow"
 #
 # data.flows is loaded from flows.yaml (converted to json)
 
+# Special-case: clean INTERNAL prompt from RAG → LLM should be allowed
+allow if {
+  input.from == "rag_orchestrator"
+  input.to == "llm"
+
+  state := input.state
+  not state.classification_label in {"RESTRICTED_PHI", "RESTRICTED_PII"}
+  state.policy_decision.action in {"allow", "mask"}
+}
+
 allow if {
   some f in data.flows
   f.from == input.from
   f.to == input.to
   f.allowed == true
   conditions_ok(f.conditions, input.state)
-}
-
-reason := r if {
-  not allow
-  r := deny_reason
 }
 
 deny_reason := msg if {

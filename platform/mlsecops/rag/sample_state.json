@@ -1,0 +1,16 @@
+{
+  "session_id": "demo-session-001",
+  "user_role": "member",
+  "last_prompt": "What are my cardiology follow-up options in LA?",
+  "classification_label": "INTERNAL",
+  "movement": {
+    "from": "rag_orchestrator",
+    "to": "llm",
+    "allow": true,
+    "reason": "classification allowed on ingress"
+  },
+  "policy_decision": {
+    "action": "allow",
+    "reason": "no sensitive entities detected"
+  }
+}

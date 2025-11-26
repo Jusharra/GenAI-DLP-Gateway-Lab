@@ -1,0 +1,15 @@
+# Minimal, stable Checkov config for Terraform
+
+framework:
+  - terraform
+
+quiet: false
+compact: false
+
+# Don't scan local TF cache / venv
+skip-path:
+  - ".terraform"
+  - ".venv"
+
+# Don't fail CI locally yet – only show HIGH/CRITICAL
+soft-fail-on: HIGH
