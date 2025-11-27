@@ -362,6 +362,25 @@ def detect_entities(text: str) -> List[Dict[str, Any]]:
     return entities
 
 
+def normalize_opa_decision(raw):
+    """
+    Normalize OPA decisions so Streamlit never sees 'undefined'.
+    """
+
+    allow = raw.get("allow", False)
+
+    # If OPA didn't provide a reason, substitute a clear default.
+    reason = raw.get("reason")
+    if not reason:
+        if allow:
+            reason = "OPA allowed this action (no explicit policy reason provided)."
+        else:
+            reason = "Blocked by default policy (no explicit allow rule matched)."
+
+    return {
+        "allow": bool(allow),
+        "reason": reason,
+    }
 
 
 
