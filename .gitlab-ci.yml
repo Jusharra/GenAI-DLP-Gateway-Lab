@@ -63,7 +63,9 @@ checkov_scan:
 
 terraform-plan:
   stage: terraform
-  image: hashicorp/terraform:1.9.8
+  image:
+    name: hashicorp/terraform:1.9.8
+    entrypoint: [""]     # <-- this is the key fix
   variables:
     TF_IN_AUTOMATION: "true"
   before_script:
@@ -73,7 +75,6 @@ terraform-plan:
     - terraform init -input=false
     - terraform validate
     - terraform plan -input=false -out=tfplan
-    # write machine-readable plan to platform/evidence/
     - mkdir -p ../evidence
     - terraform show -json tfplan > ../evidence/terraform_plan.json
   artifacts:
