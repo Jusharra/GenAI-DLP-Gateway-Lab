@@ -58,9 +58,11 @@ def load_json(path: Path, optional: bool = False, default=None):
         return json.load(f)
 
 
-def load_jsonl(path: Path):
+def load_jsonl(path: Path, optional: bool = False, default=None):
+    path = Path(path)
     if not path.exists():
-        return None
+        return default if optional else None
+
     records = []
     with path.open("r", encoding="utf-8") as f:
         for line in f:
@@ -72,6 +74,9 @@ def load_jsonl(path: Path):
             except json.JSONDecodeError:
                 # best-effort; skip bad lines
                 continue
+
+    if not records and optional:
+        return default
     return records or None
 
 
