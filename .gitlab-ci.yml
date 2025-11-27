@@ -40,11 +40,16 @@ opa-tests:
 
 checkov_scan:
   stage: checkov
-  image: bridgecrew/checkov:latest
+  image:
+    name: bridgecrew/checkov:latest
+    entrypoint: [""]          # <<< IMPORTANT: disable default checkov entrypoint
   script:
-    # Ensure we're at repo root (GitLab does this by default)
+    - mkdir -p platform/evidence
     - ls
-    - checkov -d platform/iac --config-file checkov.yml
+    - checkov -d platform/iac \
+        --config-file checkov.yml \
+        -o json \
+        --output-file-path platform/evidence/checkov.json
   artifacts:
     when: always
     paths:
@@ -57,7 +62,7 @@ checkov_scan:
 # ---------- STAGE: plan (Terraform) ----------
 
 terraform-plan:
-  stage: terraform        # ✅ must match stages: list
+  stage: terraform
   image: hashicorp/terraform:1.9.8
   variables:
     TF_IN_AUTOMATION: "true"
@@ -68,6 +73,8 @@ terraform-plan:
     - terraform init -input=false
     - terraform validate
     - terraform plan -input=false -out=tfplan
+    # write machine-readable plan to platform/evidence/
+    - mkdir -p ../evidence
     - terraform show -json tfplan > ../evidence/terraform_plan.json
   artifacts:
     paths:
@@ -80,11 +87,11 @@ terraform-plan:
 evidence-bundle:
   stage: evidence
   script:
-    - python platform/devsecops/python/scripts/generate_evidence_report.py
+    - python -m platform.devsecops.python.scripts.generate_evidence_report
   artifacts:
     paths:
       - platform/evidence/evidence_unified.json
     expire_in: 4 weeks
   needs:
-    - job: checkov_scan      # ✅ correct job name
+    - job: checkov_scan
     - job: terraform-plan
