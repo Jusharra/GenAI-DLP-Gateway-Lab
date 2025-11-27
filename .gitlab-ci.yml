@@ -74,7 +74,7 @@ terraform-plan:
     - cd platform/iac
     - terraform init -input=false
     - terraform validate
-    - terraform plan -input=false -out=tfplan
+    - terraform plan -input=false -out=tfplan -var "evidence_bucket_name=${EVIDENCE_BUCKET_NAME}"
     - mkdir -p ../evidence
     - terraform show -json tfplan > ../evidence/terraform_plan.json
   artifacts:
