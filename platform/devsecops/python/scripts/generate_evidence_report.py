@@ -288,7 +288,7 @@ def main(argv=None):
                 "runtime": opa_runtime,
                 "terraform": opa_tf,
             },
-            "checkov": checkov_json,
+            "checkov": checkov,
             "terraform_plan": tf_plan,
             "s3_metadata": s3_meta,
             "ml_metadata": ml_meta,
