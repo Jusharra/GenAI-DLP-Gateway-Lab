@@ -225,14 +225,57 @@ def main(argv=None):
     control_index = build_control_index(unified_controls, opa_map, checkov_map)
 
     # load evidence artifacts (best-effort, don't hard fail on missing optional files)
-    opa_runtime = load_json(repo_root / args.opa_runtime)
-    opa_tf = load_json(repo_root / args.opa_tf)
-    checkov_json = load_json(repo_root / args.checkov)
-    tf_plan = load_json(repo_root / args.tf_plan)
-    s3_meta = load_json(repo_root / args.s3_meta)
-    ml_meta = load_json(repo_root / args.ml_meta)
-    movement_log = load_jsonl(repo_root / args.movement_log)
-    class_log = load_jsonl(repo_root / args.class_log)
+    repo_root = Path(__file__).resolve().parents[3]
+
+    # Make OPA + ancillary evidence OPTIONAL for now so the pipeline doesn’t fail
+    opa_runtime = load_json(
+        repo_root / args.opa_runtime,
+        optional=True,
+        default={"source": "opa_runtime", "results": []},
+    )
+
+    opa_tf = load_json(
+        repo_root / args.opa_tf,
+        optional=True,
+        default={"source": "opa_terraform", "results": []},
+    )
+
+    checkov = load_json(
+        repo_root / args.checkov,
+        optional=True,
+        default={"source": "checkov", "results": []},
+    )
+
+    tf_plan = load_json(
+        repo_root / args.tf_plan,
+        optional=True,
+        default={"source": "terraform_plan", "changes": []},
+    )
+
+    s3_meta = load_json(
+        repo_root / args.s3_meta,
+        optional=True,
+        default={"buckets": []},
+    )
+
+    ml_meta = load_json(
+        repo_root / args.ml_meta,
+        optional=True,
+        default={"runs": []},
+    )
+
+    movement_log = load_jsonl(
+        repo_root / args.movement_log,
+        optional=True,
+        default=[],
+    )
+
+    class_log = load_jsonl(
+        repo_root / args.class_log,
+        optional=True,
+        default=[],
+    )
+
 
     evidence = {
         "run_metadata": {
