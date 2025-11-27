@@ -88,7 +88,19 @@ terraform-plan:
 evidence-bundle:
   stage: evidence
   script:
-    - python -m platform.devsecops.python.scripts.generate_evidence_report
+    # make sure evidence directory exists
+    - mkdir -p platform/evidence
+    # run the script by file path to avoid the 'platform' package collision
+    - python platform/devsecops/python/scripts/generate_evidence_report.py \
+        --opa-runtime platform/evidence/opa_runtime.json \
+        --opa-tf platform/evidence/opa_terraform.json \
+        --checkov platform/evidence/checkov.json \
+        --tf-plan platform/evidence/terraform_plan.json \
+        --s3-meta platform/evidence/s3_metadata.json \
+        --ml-meta platform/evidence/ml_metadata.json \
+        --movement-log platform/evidence/data_movement_log.jsonl \
+        --class-log platform/evidence/classification_log.jsonl \
+        --out platform/evidence/evidence_unified.json
   artifacts:
     paths:
       - platform/evidence/evidence_unified.json
@@ -96,3 +108,4 @@ evidence-bundle:
   needs:
     - job: checkov_scan
     - job: terraform-plan
+
