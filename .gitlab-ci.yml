@@ -43,11 +43,11 @@ checkov_scan:
   image:
     name: bridgecrew/checkov:latest
     entrypoint: [""]        # keep this so our script actually runs
+  before_script: []          # ← ADD THIS LINE ONLY
   script:
     - pwd
     - ls
     - mkdir -p platform/evidence
-    # IMPORTANT: config file is at repo root, NOT in platform/iac
     - checkov \
         -d platform/iac \
         --config-file ./checkov.yml \
