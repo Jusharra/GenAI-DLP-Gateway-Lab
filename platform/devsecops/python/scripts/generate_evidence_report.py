@@ -26,11 +26,34 @@ def load_yaml(path: Path, required: bool = True):
         return yaml.safe_load(f)
 
 
-def load_json(path: Path, required: bool = False):
+def load_json(path: Path, optional: bool = False, default=None):
+    """
+    Load JSON from a file, but be forgiving if the path is a directory
+    (e.g., Checkov writes to a directory like 'checkov.json/').
+    """
+    path = Path(path)
+
+    # If it's a directory (like platform/evidence/checkov.json/)
+    # try to pick a JSON file inside it.
+    if path.is_dir():
+        # Prefer *.json, but if none, just pick the first file.
+        candidates = sorted([p for p in path.glob("*.json") if p.is_file()])
+        if not candidates:
+            candidates = sorted([p for p in path.iterdir() if p.is_file()])
+
+        if not candidates:
+            if optional:
+                return default
+            raise FileNotFoundError(f"No JSON files found in directory: {path}")
+
+        # Use the first JSON file we found
+        path = candidates[0]
+
     if not path.exists():
-        if required:
-            raise FileNotFoundError(f"Required JSON not found: {path}")
-        return None
+        if optional:
+            return default
+        raise FileNotFoundError(f"Required evidence file not found: {path}")
+
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
