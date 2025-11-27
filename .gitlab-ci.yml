@@ -42,12 +42,15 @@ checkov_scan:
   stage: checkov
   image:
     name: bridgecrew/checkov:latest
-    entrypoint: [""]          # <<< IMPORTANT: disable default checkov entrypoint
+    entrypoint: [""]        # keep this so our script actually runs
   script:
-    - mkdir -p platform/evidence
+    - pwd
     - ls
-    - checkov -d platform/iac \
-        --config-file checkov.yml \
+    - mkdir -p platform/evidence
+    # IMPORTANT: config file is at repo root, NOT in platform/iac
+    - checkov \
+        -d platform/iac \
+        --config-file ./checkov.yml \
         -o json \
         --output-file-path platform/evidence/checkov.json
   artifacts:
