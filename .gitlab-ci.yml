@@ -43,16 +43,12 @@ checkov_scan:
   image:
     name: bridgecrew/checkov:latest
     entrypoint: [""]        # keep this so our script actually runs
-  before_script: []          # ← ADD THIS LINE ONLY
+  before_script: []          # override global Python/OPA setup for this job
   script:
     - pwd
     - ls
     - mkdir -p platform/evidence
-    - checkov \
-        -d platform/iac \
-        --config-file ./checkov.yml \
-        -o json \
-        --output-file-path platform/evidence/checkov.json
+    - checkov -d platform/iac --config-file ./checkov.yml -o json --output-file-path platform/evidence/checkov.json
   artifacts:
     when: always
     paths:
@@ -61,6 +57,7 @@ checkov_scan:
   only:
     - main
     - merge_requests
+
 
 # ---------- STAGE: plan (Terraform) ----------
 
