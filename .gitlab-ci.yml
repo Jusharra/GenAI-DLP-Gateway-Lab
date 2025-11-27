@@ -57,7 +57,7 @@ checkov_scan:
 # ---------- STAGE: plan (Terraform) ----------
 
 terraform-plan:
-  stage: plan
+  stage: terraform        # ✅ must match stages: list
   image: hashicorp/terraform:1.9.8
   variables:
     TF_IN_AUTOMATION: "true"
@@ -68,7 +68,6 @@ terraform-plan:
     - terraform init -input=false
     - terraform validate
     - terraform plan -input=false -out=tfplan
-    # Export machine-readable plan for evidence merge
     - terraform show -json tfplan > ../evidence/terraform_plan.json
   artifacts:
     paths:
@@ -81,12 +80,11 @@ terraform-plan:
 evidence-bundle:
   stage: evidence
   script:
-    # Merge whatever evidence exists into one auditor JSON
     - python platform/devsecops/python/scripts/generate_evidence_report.py
   artifacts:
     paths:
       - platform/evidence/evidence_unified.json
     expire_in: 4 weeks
   needs:
-    - job: checkov-scan
+    - job: checkov_scan      # ✅ correct job name
     - job: terraform-plan
