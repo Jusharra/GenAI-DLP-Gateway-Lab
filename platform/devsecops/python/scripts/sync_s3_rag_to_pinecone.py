@@ -3,16 +3,28 @@ import json
 from typing import List, Tuple, Dict
 
 import boto3
-import pinecone
+from pinecone import Pinecone
 from openai import OpenAI
+from dotenv import load_dotenv  # ✅ add this
 
+load_dotenv()  
 
 DEMO_BUCKET = os.getenv("DEMO_BUCKET", "vhc-dlp-demo-data-dev")
-RAG_PREFIX = os.getenv("RAG_S3_PREFIX", "rag/")
 
-PINECONE_ENV = os.getenv("PINECONE_ENV")
+# Support multiple prefixes: e.g. "clean/,sensitive/"
+RAG_PREFIXES = [
+    p.strip()
+    for p in os.getenv("RAG_S3_PREFIXES", "clean/,sensitive/").split(",")
+    if p.strip()
+]
+
+PINECONE_ENV = os.getenv("PINECONE_ENV") or os.getenv("PINECONE_ENVIRONMENT")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "vhc-genai-rag")
+PINECONE_INDEX_NAME = (
+    os.getenv("PINECONE_INDEX_NAME")
+    or os.getenv("PINECONE_INDEX")
+    or "vhc-rag-index"
+)
 PINECONE_NAMESPACE = os.getenv("PINECONE_NAMESPACE", "default")
 
 OPENAI_MODEL = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small")
@@ -39,46 +51,76 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
 
 def load_rag_docs_from_s3() -> List[Tuple[str, str, Dict]]:
     """
-    Read RAG JSON docs from S3:DEMO_BUCKET/RAG_PREFIX.
-    Each object is expected to be:
-      { "id": "...", "text": "...", "metadata": {...} }
+    Read RAG JSON docs from S3:DEMO_BUCKET/{prefixes}.
+    Each object is expected to be JSON; we are tolerant about the text key:
+      - "text"
+      - "content"
+      - "body"
+      - "prompt"/"question"/"answer" (joined)
     """
     s3 = boto3.client("s3")
 
-    print(f"[RAG] Listing S3 objects from {DEMO_BUCKET}/{RAG_PREFIX}")
-    resp = s3.list_objects_v2(Bucket=DEMO_BUCKET, Prefix=RAG_PREFIX)
-
-    contents = resp.get("Contents", [])
-    if not contents:
-        print("[RAG] No objects found under prefix, nothing to sync.")
-        return []
-
     docs: List[Tuple[str, str, Dict]] = []
-    for obj in contents:
-        key = obj["Key"]
-        if not key.endswith(".json"):
+
+    for prefix in RAG_PREFIXES:
+        prefix = prefix.strip()
+        if not prefix:
             continue
 
-        body = s3.get_object(Bucket=DEMO_BUCKET, Key=key)["Body"].read()
-        try:
-            record = json.loads(body)
-        except json.JSONDecodeError:
-            print(f"[RAG] Skipping non-JSON object: {key}")
+        print(f"[RAG] Listing S3 objects from {DEMO_BUCKET}/{prefix}")
+        resp = s3.list_objects_v2(Bucket=DEMO_BUCKET, Prefix=prefix)
+
+        contents = resp.get("Contents", [])
+        if not contents:
             continue
 
-        text = record.get("text") or record.get("content")
-        if not text:
-            print(f"[RAG] Skipping {key}, no 'text' field.")
-            continue
+        for obj in contents:
+            key = obj["Key"]
+            # ignore folder “keys”
+            if key.endswith("/") or not key.endswith(".json"):
+                continue
 
-        doc_id = record.get("id") or key
-        metadata = record.get("metadata", {})
-        # keep the S3 key as part of metadata for traceability
-        metadata.setdefault("s3_key", key)
+            body = s3.get_object(Bucket=DEMO_BUCKET, Key=key)["Body"].read()
+            try:
+                record = json.loads(body)
+            except json.JSONDecodeError:
+                print(f"[RAG] Skipping non-JSON object: {key}")
+                continue
 
-        docs.append((doc_id, text, metadata))
+            # ---- tolerant text extraction ----
+            text = None
 
-    print(f"[RAG] Loaded {len(docs)} docs from S3")
+            # primary candidates
+            for field in ("text", "content", "body"):
+                v = record.get(field)
+                if isinstance(v, str) and v.strip():
+                    text = v.strip()
+                    break
+
+            # fallback: join Q/A style fields if no single text field exists
+            if text is None:
+                q = record.get("question") or record.get("prompt")
+                a = record.get("answer") or record.get("response")
+                pieces = [p for p in [q, a] if isinstance(p, str) and p.strip()]
+                if pieces:
+                    text = "\n\n".join(pieces)
+
+            if not text:
+                # keep this log but do NOT treat it as fatal
+                print(f"[RAG] Skipping {key}, no usable text field.")
+                continue
+
+            doc_id = record.get("id") or key
+            metadata = record.get("metadata", {})
+            metadata.setdefault("s3_key", key)
+
+            docs.append((doc_id, text, metadata))
+
+    if not docs:
+        print(f"[RAG] No RAG docs found across all prefixes; nothing to sync.")
+    else:
+        print(f"[RAG] Loaded {len(docs)} docs from S3 across prefixes {RAG_PREFIXES}")
+
     return docs
 
 
@@ -90,11 +132,12 @@ def upsert_docs_to_pinecone(docs: List[Tuple[str, str, Dict]]):
         print("[PINECONE] No docs to upsert; exiting.")
         return
 
-    if not PINECONE_API_KEY or not PINECONE_ENV:
-        raise RuntimeError("PINECONE_API_KEY and PINECONE_ENV must be set")
+    if not PINECONE_API_KEY:
+        raise RuntimeError("PINECONE_API_KEY must be set")
 
-    pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
-    index = pinecone.Index(PINECONE_INDEX_NAME)
+    # New Pinecone client (no global init)
+    pc = Pinecone(api_key=PINECONE_API_KEY)
+    index = pc.Index(PINECONE_INDEX_NAME)
 
     batch_size = 32
     for i in range(0, len(docs), batch_size):
@@ -111,10 +154,13 @@ def upsert_docs_to_pinecone(docs: List[Tuple[str, str, Dict]]):
             for j in range(len(batch))
         ]
 
-        print(f"[PINECONE] Upserting {len(payload)} vectors into index '{PINECONE_INDEX_NAME}' namespace '{PINECONE_NAMESPACE}'")
+        print(
+            f"[PINECONE] Upserting {len(payload)} vectors into "
+            f"index '{PINECONE_INDEX_NAME}' namespace '{PINECONE_NAMESPACE}'"
+        )
         index.upsert(
             vectors=payload,
-            namespace=PINECONE_NAMESPACE
+            namespace=PINECONE_NAMESPACE,
         )
 
 
