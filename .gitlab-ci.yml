@@ -31,7 +31,7 @@ python-tests:
 # ---------- STAGE: policy (OPA & Checkov) ----------
 
 opa-tests:
-  stage: policy
+  stage: opa
   script:
     # Runtime DLP policy tests
     - opa test platform/governance/policies_as_code/opa/dlp_runtime -v
