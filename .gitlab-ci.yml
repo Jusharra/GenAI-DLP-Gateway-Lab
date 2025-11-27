@@ -1,8 +1,9 @@
 stages:
   - validate
   - test
-  - policy
-  - plan
+  - opa
+  - checkov
+  - terraform
   - evidence
 
 # Default image + tooling for Python, OPA, Checkov
@@ -37,17 +38,21 @@ opa-tests:
     # Data-movement policy tests
     - opa test platform/mlsecops/data_movement -v
 
-checkov-scan:
-  stage: policy
+checkov_scan:
+  stage: checkov
+  image: bridgecrew/checkov:latest
   script:
-    # Tightened scan using your checkov.yml
-    - mkdir -p platform/evidence
-    - checkov -d platform/iac --config-file checkov.yml \
-        -o json --output-file-path platform/evidence/checkov.json
+    # Ensure we're at repo root (GitLab does this by default)
+    - ls
+    - checkov -d platform/iac --config-file checkov.yml
   artifacts:
+    when: always
     paths:
       - platform/evidence/checkov.json
-    expire_in: 1 week
+    expire_in: 7 days
+  only:
+    - main
+    - merge_requests
 
 # ---------- STAGE: plan (Terraform) ----------
 
