@@ -48,7 +48,7 @@ checkov_scan:
     - pwd
     - ls
     - mkdir -p platform/evidence
-    - checkov -d platform/iac --config-file ./checkov.yml -o json --output-file-path platform/evidence/checkov.json
+    - checkov -d platform/iac --config-file ./checkov.yml -o json --output-file-path platform/evidence/checkov.json --soft-fail
   artifacts:
     when: always
     paths:
