@@ -97,7 +97,69 @@ def simulate_flow(
 
     return decision
 
+def summarize_rag_results(prompt: str, matches: List[Dict[str, Any]]) -> str:
+    """
+    Use the retrieved RAG context (ideally ATLAS techniques) to generate a short
+    human-readable explanation of *why* these results are relevant.
 
+    If OPENAI_API_KEY is missing, we just fall back to a static message.
+    """
+    if not matches:
+        return "No RAG context retrieved for this prompt."
+
+    if not openai_client:
+        return (
+            "RAG context was retrieved, but LLM summarization is disabled because "
+            "OPENAI_API_KEY is not configured."
+        )
+
+    # Build a compact context from the top few matches
+    context_chunks = []
+    for m in matches[:5]:
+        meta = m.get("metadata") or {}
+        title = (
+            meta.get("title")
+            or meta.get("name")
+            or meta.get("technique")
+            or meta.get("technique_name")
+            or meta.get("id")
+            or m["id"]
+        )
+        tactic = meta.get("tactic") or meta.get("tactic_name")
+        desc = meta.get("description") or meta.get("summary") or ""
+
+        block = f"ID: {m['id']}\nScore: {m['score']:.3f}\nTitle: {title}\n"
+        if tactic:
+            block += f"Tactic: {tactic}\n"
+        if desc:
+            block += f"Description: {desc}\n"
+        context_chunks.append(block)
+
+    context_text = "\n\n".join(context_chunks)
+
+    completion = openai_client.chat.completions.create(
+        model=os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini"),
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an AI security assistant explaining how retrieved "
+                    "AI attack / ATLAS Matrix techniques relate to a user's prompt. "
+                    "Summarize in 3–4 bullet points, focusing on why these "
+                    "techniques are relevant and what they show about risk."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"User prompt:\n{prompt}\n\n"
+                    f"Retrieved context (ATLAS/AI attack metadata):\n{context_text}"
+                ),
+            },
+        ],
+        temperature=0.2,
+    )
+    return completion.choices[0].message.content.strip()
 # ----------------------------------------------------
 # Streamlit UI
 # ----------------------------------------------------
@@ -198,8 +260,10 @@ if run_demo:
 
     if not all_to_pinecone_allowed:
         st.warning(
-            "Policy blocked at least one hop in the chain to Pinecone. "
-            "RAG query is **not** executed for this prompt."
+            f"Policy blocked at least one hop in the chain to Pinecone "
+            f"for classification label `{classification_label}`. "
+            "RAG query is **not** executed for this prompt. "
+            "See data-movement reasons above."
         )
     elif not (openai_client and pinecone_index):
         st.warning(
@@ -218,14 +282,23 @@ if run_demo:
             st.info("No RAG matches returned from Pinecone.")
         else:
             st.success(f"Retrieved {len(matches)} RAG matches from Pinecone.")
-            for m in matches:
-                st.markdown(f"**Vector ID:** `{m['id']}` · Score: `{m['score']:.4f}`")
-                meta = m.get("metadata") or {}
-                if meta:
-                    st.json(meta)
-                else:
-                    st.write("_No metadata on this vector._")
-                st.markdown("---")
+
+            # 🔎 New: AI-generated explanation of *why* these results matter
+            st.markdown("**RAG assistant explanation**")
+            summary = summarize_rag_results(user_prompt, matches)
+            st.write(summary)
+            st.markdown("---")
+
+        # Raw matches for auditors
+        for m in matches:
+            st.markdown(f"**Vector ID:** `{m['id']}` · Score: `{m['score']:.4f}`")
+            meta = m.get("metadata") or {}
+            if meta:
+                st.json(meta)
+            else:
+                st.write("_No metadata on this vector._")
+            st.markdown("---")
+
             # 3️⃣ AI assistant answer using RAG context
             if openai_client:
                 st.markdown("### 3️⃣ AI assistant response")
@@ -272,4 +345,20 @@ if run_demo:
                     st.write(answer)
                 except Exception as e:
                     st.error(f"Error generating AI answer: {e}")
-       
+           # ---------------- UI: Evidence snapshot (optional) ----------------
+                evidence_path = ROOT / "platform" / "evidence" / "evidence_unified.json"
+                if evidence_path.exists():
+                    st.markdown("### 3️⃣ Evidence snapshot for GRC")
+                    try:
+                        import json
+                        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+                        controls = evidence.get("controls", [])[:10]  # show first few
+                        st.caption(
+                            "Mapped unified controls with OPA policies and Checkov checks "
+                            "(showing a small subset for demo)."
+                        )
+                        st.json(controls)
+                    except Exception as e:
+                        st.warning(f"Could not load evidence_unified.json: {e}")
+                else:
+                    st.info("Run the CI pipeline to generate unified evidence before demoing this section.")

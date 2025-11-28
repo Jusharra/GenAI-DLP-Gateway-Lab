@@ -88,15 +88,19 @@ terraform-plan:
 evidence-bundle:
   stage: evidence
   script:
-    - mkdir -p platform/evidence
-    # let the script use its own defaults – no CLI args
-    - python platform/devsecops/python/scripts/generate_evidence_report.py
+    # generate unified evidence JSON
+    - python -m platform.devsecops.python.scripts.generate_evidence_report
+    # zip up all evidence for auditors
+    - cd platform/evidence && zip -r evidence_bundle_$(date -u +%Y%m%dT%H%M%SZ).zip .
   artifacts:
+    when: always
     paths:
       - platform/evidence/evidence_unified.json
+      - platform/evidence/evidence_bundle_*.zip
     expire_in: 4 weeks
   needs:
     - job: checkov_scan
     - job: terraform-plan
+
 
 
