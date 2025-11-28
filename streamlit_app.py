@@ -323,7 +323,7 @@ if run_demo:
 
                     system_msg = (
                         "You are a DLP-aware RAG assistant. "
-                        "Answer the user's question using ONLY the provided context. "
+                        "Answer the user's question using ONLY the provided context and ISO/IEC 42001:2023 and ISO 27001. "
                         "If the context is not relevant, say you have insufficient "
                         "information instead of guessing."
                     )
