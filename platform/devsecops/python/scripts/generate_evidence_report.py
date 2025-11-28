@@ -230,7 +230,7 @@ def main(argv=None):
     control_index = build_control_index(unified_controls, opa_map, checkov_map)
 
     # load evidence artifacts (best-effort, don't hard fail on missing optional files)
-    repo_root = Path(__file__).resolve().parents[3]
+    repo_root = Path(__file__).resolve().parents[2]
 
     # Make OPA + ancillary evidence OPTIONAL for now so the pipeline doesn’t fail
     opa_runtime = load_json(

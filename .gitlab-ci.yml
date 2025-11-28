@@ -88,6 +88,7 @@ terraform-plan:
 evidence-bundle:
   stage: evidence
   script:
+    - apt-get update && apt-get install -y zip
     # generate unified evidence JSON
     - python platform/devsecops/python/scripts/generate_evidence_report.py
     # zip up all evidence for auditors
