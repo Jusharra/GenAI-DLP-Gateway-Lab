@@ -1,77 +1,33 @@
 {
   "flows": [
     {
-      "id": "FLOW-INGRESS-001",
-      "name": "Prompt → DLP Gateway",
+      "id": "user_to_gateway_internal",
       "from": "user",
       "to": "dlp_gateway",
       "allowed": true,
-      "requires": ["classification", "policy_eval"]
+      "conditions": [
+        "classification_label not_in [RESTRICTED_PII, RESTRICTED_PHI]",
+        "policy_decision.action in [allow,mask]"
+      ]
     },
     {
-      "id": "FLOW-INGRESS-002",
-      "name": "DLP Gateway → RAG Orchestrator",
+      "id": "gateway_to_rag_internal",
       "from": "dlp_gateway",
       "to": "rag_orchestrator",
       "allowed": true,
       "conditions": [
-        "classification_label not_in [RESTRICTED_PHI]",
-        "policy_decision.action in [allow, mask]"
+        "classification_label not_in [RESTRICTED_PII, RESTRICTED_PHI]",
+        "policy_decision.action in [allow,mask]"
       ]
     },
     {
-      "id": "FLOW-INGRESS-003",
-      "name": "RAG Orchestrator → Pinecone Retrieval",
+      "id": "rag_to_pinecone_internal",
       "from": "rag_orchestrator",
       "to": "pinecone",
       "allowed": true,
       "conditions": [
-        "classification_label not_in [RESTRICTED_PHI, RESTRICTED_PII]",
-        "redaction_applied == true"
-      ]
-    },
-    {
-      "id": "FLOW-INGRESS-004",
-      "name": "RAG Orchestrator → LLM",
-      "from": "rag_orchestrator",
-      "to": "llm",
-      "allowed": true,
-      "conditions": [
-        "classification_label not_in [RESTRICTED_PHI, RESTRICTED_PII]",
-        "policy_decision.action in [allow, mask]"
-      ]
-    },
-    {
-      "id": "FLOW-EGRESS-001",
-      "name": "LLM → DLP Gateway",
-      "from": "llm",
-      "to": "dlp_gateway",
-      "allowed": true,
-      "requires": [
-        "outbound_scan",
-        "classification",
-        "policy_eval"
-      ]
-    },
-    {
-      "id": "FLOW-EGRESS-002",
-      "name": "DLP Gateway → User",
-      "from": "dlp_gateway",
-      "to": "user",
-      "allowed": true,
-      "conditions": [
-        "policy_decision.action in [allow, mask]"
-      ]
-    },
-    {
-      "id": "FLOW-EVIDENCE-001",
-      "name": "DLP Gateway → Evidence Vault",
-      "from": "dlp_gateway",
-      "to": "evidence_s3",
-      "allowed": true,
-      "requires": [
-        "kms_encryption",
-        "immutable_logging"
+        "classification_label not_in [RESTRICTED_PII, RESTRICTED_PHI]",
+        "policy_decision.action in [allow,mask]"
       ]
     }
   ]

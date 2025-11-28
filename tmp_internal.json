@@ -1,0 +1,9 @@
+{
+  "from": "user",
+  "to": "dlp_gateway",
+  "state": {
+    "classification_label": "INTERNAL",
+    "policy_decision": { "action": "allow" },
+    "redaction_applied": false
+  }
+}

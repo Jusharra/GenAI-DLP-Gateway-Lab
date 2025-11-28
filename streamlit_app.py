@@ -3,28 +3,20 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
+# --- Make sure Python can find dlp_utils.py ---
+ROOT = Path(__file__).resolve().parent
+DLP_PATH = ROOT / "platform" / "devsecops" / "python"
+if str(DLP_PATH) not in sys.path:
+    sys.path.insert(0, str(DLP_PATH))
+
+from dlp_utils import classify_text, detect_entities, check_data_movement
 import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
-from dotenv import load_dotenv
 from pinecone import Pinecone, ServerlessSpec
 
 load_dotenv()
 
-# ----------------------------------------------------
-# Bootstrap Python path so we can import dlp_utils
-# ----------------------------------------------------
-REPO_ROOT = Path(__file__).resolve().parent
-PYTHON_DIR = REPO_ROOT / "platform" / "devsecops" / "python"
-if str(PYTHON_DIR) not in sys.path:
-    sys.path.insert(0, str(PYTHON_DIR))
-
-from dlp_utils import classify_text, detect_entities, check_data_movement  # type: ignore
-
-# ----------------------------------------------------
-# Env + clients
-# ----------------------------------------------------
-load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_EMBED_MODEL = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small")
@@ -147,31 +139,32 @@ if run_demo:
 
     with st.spinner("Running DLP classification and policy checks..."):
         # ---------------- DLP classification ----------------
-        classification_label = classify_text(user_prompt)
-        entities = detect_entities(user_prompt)
+        # classify_text now returns a dict: {"label": ..., "entities": [...]}
+        classification = classify_text(user_prompt)
+        classification_label = classification.get("label", "INTERNAL")
+        entities = classification.get("entities") or detect_entities(user_prompt)
 
-        # ---------------- Data movement hops ----------------
-        hops = [
-            ("user", "dlp_gateway", "User → DLP Gateway"),
-            ("dlp_gateway", "rag_orchestrator", "DLP → RAG orchestrator"),
-            ("rag_orchestrator", "pinecone", "RAG orchestrator → Pinecone"),
-        ]
+        # ---------------- Data movement via dlp_utils ----------------
+        # Use the same engine you used in your sanity check
+        movement = check_data_movement(user_prompt)
 
         hop_results = []
         all_to_pinecone_allowed = True
 
-        for src, dst, label in hops:
-            decision = simulate_flow(src, dst, classification_label)
-            allow = bool(decision.get("allow", False))
+        # movement["hops"] is expected to be a list of:
+        # { "from": ..., "to": ..., "allow": bool, "reason": "human readable" }
+        for hop in movement.get("hops", []):
+            allow = bool(hop.get("allow", False))
             if not allow:
                 all_to_pinecone_allowed = False
+
             hop_results.append(
                 {
-                    "src": src,
-                    "dst": dst,
-                    "label": label,
+                    "src": hop.get("from"),
+                    "dst": hop.get("to"),
+                    "label": f"{hop.get('from')} → {hop.get('to')}",
                     "allow": allow,
-                    "reason": decision.get("reason", "no reason provided"),
+                    "reason": hop.get("reason", "no reason provided"),
                 }
             )
 
@@ -180,7 +173,9 @@ if run_demo:
 
     with col1:
         st.markdown("### 🧬 DLP classification")
+        # Show ONLY the label, not the whole dict
         st.write(f"**Label:** `{classification_label}`")
+
         if entities:
             st.write("**Detected entities:**")
             st.json(entities)
@@ -194,7 +189,8 @@ if run_demo:
             color = "✅" if hop["allow"] else "⛔"
             st.markdown(f"**{color} {hop['label']}**")
             st.write(f"- allow: `{hop['allow']}`")
-            st.write(f"- reason: `{hop['reason']}`")
+            # This is now the human-readable reason from OPA / dlp_utils
+            st.write(f"- reason: {hop['reason']}")
             st.markdown("---")
 
     # ---------------- UI: RAG retrieval ----------------
@@ -230,3 +226,50 @@ if run_demo:
                 else:
                     st.write("_No metadata on this vector._")
                 st.markdown("---")
+            # 3️⃣ AI assistant answer using RAG context
+            if openai_client:
+                st.markdown("### 3️⃣ AI assistant response")
+
+                # Collect some text from the retrieved vectors
+                context_chunks = []
+                for m in matches:
+                    meta = m.get("metadata") or {}
+                    text = (
+                        meta.get("content")
+                        or meta.get("text")
+                        or meta.get("chunk")
+                    )
+                    if text:
+                        context_chunks.append(text)
+
+                context = "\n\n---\n\n".join(context_chunks[:3])  # keep it short
+
+                try:
+                    from openai import OpenAI  # already imported at top, but harmless
+                    model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+                    system_msg = (
+                        "You are a DLP-aware RAG assistant. "
+                        "Answer the user's question using ONLY the provided context. "
+                        "If the context is not relevant, say you have insufficient "
+                        "information instead of guessing."
+                    )
+
+                    user_msg = (
+                        f"User prompt:\n{user_prompt}\n\n"
+                        f"Relevant context from vector store:\n{context or '[no context available]'}"
+                    )
+
+                    resp = openai_client.chat.completions.create(
+                        model=model_name,
+                        messages=[
+                            {"role": "system", "content": system_msg},
+                            {"role": "user", "content": user_msg},
+                        ],
+                        temperature=0.2,
+                    )
+                    answer = resp.choices[0].message.content
+                    st.write(answer)
+                except Exception as e:
+                    st.error(f"Error generating AI answer: {e}")
+       

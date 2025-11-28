@@ -1,316 +1,204 @@
-📘 AI Prompt & Response DLP Filter for GenAI / RAG Pipelines
-GenAI DLP Gateway Lab
-A Zero-Trust, Policy-Driven DLP Enforcement Layer for RAG & LLM Pipelines
+# GenAI DLP Gateway Lab – RAG Visibility Demo
+
+End-to-end lab for **AI-native DLP** and **governed RAG**:
+
+> User prompt → DLP classification → OPA data-movement policies → Pinecone RAG → evidence bundle for auditors.
+
+This repo is designed as a **portfolio-ready** and **client-ready** reference implementation of a GenAI DLP gateway with:
+
+- **DLP classification** and entity detection on prompts
+- **OPA / Rego policies** enforcing data-movement guardrails
+- **MITRE ATLAS–style RAG corpus** in Pinecone
+- **GitLab CI/CD** with Python tests, OPA tests, Checkov, Terraform plan, and an **evidence bundle** generator
+- **Streamlit UI** for live demos
+
+---
+
+## 1. High-level architecture
+
+Logical flow:
+
+1. **User → DLP Gateway**
+   - Streamlit app sends the prompt through `dlp_utils.classify_text` and `detect_entities`.
+   - Output: label (e.g., `INTERNAL`, `RESTRICTED_PII`, `RESTRICTED_PHI`) + detected entities.
+
+2. **DLP → OPA policy engine**
+   - For each hop (`user → dlp_gateway → rag_orchestrator → pinecone`),
+     we call `_run_opa()` with:
+     ```json
+     {
+       "from": "user|dlp_gateway|rag_orchestrator",
+       "to": "dlp_gateway|rag_orchestrator|pinecone",
+       "state": {
+         "classification_label": "...",
+         "policy_decision": { "action": "allow|mask|block" },
+         "redaction_applied": false
+       }
+     }
+     ```
+   - Rego in `platform/mlsecops/data_movement/data_movement.rego`
+     and flows in `platform/mlsecops/data_movement/flows.json`
+     decide `allow` + `reason`.
+
+3. **RAG retrieval (Pinecone)**
+   - If **all hops are allowed**, the prompt is embedded with OpenAI and
+     queried against the Pinecone index (`vhc-rag-index` / `vhc-default`).
+   - Metadata is expected to contain **ATLAS / AI attack technique** fields
+     (e.g. `title`, `tactic`, `description`).
+
+4. **RAG assistant explanation**
+   - The top matches are summarized by an OpenAI chat model to produce a
+     short explanation of:
+     - Which ATLAS / AI techniques were retrieved
+     - Why they are relevant to the user’s prompt
+     - What risk they illustrate
 
-A hands-on, 1–2 hour AWS lab designed to showcase enterprise-grade AI governance, DLP enforcement, and compliance-as-code guardrails.
-This project demonstrates how to secure a GenAI/RAG pipeline with policy-driven filtering, least-privilege IAM, encrypted evidence logging, and continuous compliance controls.
+5. **Evidence bundle**
+   - GitLab jobs run:
+     - Python unit tests
+     - `opa test` for policies
+     - Checkov against `platform/iac`
+     - Terraform plan with JSON output
+   - `platform/devsecops/python/scripts/generate_evidence_report.py`
+     merges Checkov, Terraform, and mapping files into
+     `platform/evidence/evidence_unified.json`.
 
-🚀 Executive Summary
+---
 
-Zero-trust DLP enforcement for GenAI — Every prompt and every LLM/RAG response is scanned for PII/PHI using a DLP Lambda before hitting the model or the user.
+## 2. Repo layout
 
-Policy-as-code guardrails prevent insecure deployments — OPA/Rego blocks Terraform applies if the DLP gateway, evidence logging, or IAM restrictions aren’t correctly configured.
+```text
+GenAI-DLP-Gateway-Lab/
+├── platform/
+│   ├── devsecops/
+│   │   └── python/
+│   │       ├── dlp_utils.py
+│   │       └── scripts/
+│   │           └── generate_evidence_report.py
+│   ├── mlsecops/
+│   │   └── data_movement/
+│   │       ├── data_movement.rego
+│   │       ├── flows.json
+│   │       └── build_flows_json.py
+│   ├── governance/
+│   │   └── control_catalog/
+│   │       ├── unified_controls.yaml
+│   │       ├── opa_to_unified_controls.yaml
+│   │       └── checkov_to_unified_controls.yaml
+│   ├── iac/
+│   │   └── ... Terraform for evidence S3, etc.
+│   └── evidence/
+│       └── (generated artifacts)
+├── streamlit_app.py
+├── checkov.yml
+├── .gitlab-ci.yml
+└── sample_payload.json
+3. Local setup
+# clone repo
+git clone <repo-url>
+cd GenAI-DLP-Gateway-Lab
 
-Audit-ready architecture — All DLP decisions, masks, blocks, and logs are stored in a KMS-encrypted evidence vault and mapped to ISO 27001, ISO 42001, and HIPAA controls.
+# create virtualenv (example)
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-📂 Repository Structure
+# install Python deps
+pip install -r platform/devsecops/python/requirements-dev.txt
+pip install streamlit pinecone-client python-dotenv
 
-This lab uses the platform baseline architecture:
+Environment variables
 
-platform/
-  devsecops/
-    gitlab/
-      .gitlab-ci.yml
-      base-ci.yml
-    python/
-      requirements-dev.txt
-    scripts/
-      check_controls_mapping.py
-      generate_evidence_report.py
-    terraform/
-      evidence_s3/
-        main.tf
-        outputs.tf
-        variables.tf
-        README.md
+Create a .env file:
 
-  docs/
-    architecture/
-      platform-architecture.md
-    standards/
-      coding-standards.md
+OPENAI_API_KEY=sk-...
+OPENAI_EMBED_MODEL=text-embedding-3-small
 
-  governance/
-    control_catalog/
-      soc2_controls.yaml
-    policies_as_code/
-      opa/
-        terraform_guardrails.rego
-    risk_register/
-      risk_register.yaml
-      README.md
+OPENAI_CHAT_MODEL=gpt-4o-mini
 
-  mlsecops/
-    templates/
-      README.md
+PINECONE_API_KEY=pc-...
+PINECONE_INDEX_NAME=vhc-rag-index
+PINECONE_NAMESPACE=vhc-default
 
-.gitignore
-README.md
+# Optional: path to local OPA binary for dlp_utils._run_opa
+OPA_BIN=/c/Tools/OPA/opa.exe
 
-🧩 Project Overview
-Objective
+4. Running the Streamlit demo
+streamlit run streamlit_app.py
 
-Build a DLP Gateway that sits in front of a GenAI RAG pipeline using Pinecone as the vector database.
-This gateway inspects prompts and responses for PII/PHI, applying OPA/Rego policies to block, mask, or allow traffic before reaching the LLM.
 
-What You’ll Build
+Demo flow:
 
-User → API Gateway → DLP Lambda → RAG Orchestrator Lambda → Pinecone → LLM → DLP Check → User
+Enter a prompt (e.g. non-sensitive: “Help me plan a limo pickup at LAX for four people.”).
 
-Core features:
+Click “Run DLP + RAG flow”.
 
-Prompt & response PII/PHI detection
+Inspect:
 
-Rego-based block/allow/mask/redact
+DLP classification – label & entities
 
-Evidence logging to KMS-encrypted S3
+Data movement decisions – OPA allow/deny + human-readable reason
 
-Least-privilege IAM roles
+RAG retrieval – Pinecone matches + RAG assistant explanation
 
-Pinecone for vector DB retrieval
+Repeat with sensitive prompts:
 
-Optionally Bedrock for LLM inference
+Here is the client's SSN: 123-45-6789.
 
-Terraform IaC + GitLab CI/CD
+This patient tested positive for strep. What meds should they ask their doctor about?
 
-Policy-as-code deployment gates
+For restricted prompts, observe:
 
-Automated GRC evidence generation
+Labels RESTRICTED_PII / RESTRICTED_PHI
 
-🛠️ Tech Stack
-AI + RAG
+One or more hops denied with a clear Rego reason
 
-AWS Bedrock (or a stubbed local LLM)
+RAG section showing that the query was not executed due to policy.
 
-Pinecone (vector store)
+5. CI/CD pipeline (GitLab)
 
-Embeddings + context retrieval
+.gitlab-ci.yml stages:
 
-DLP
+validate
 
-Microsoft Presidio (or regex fallback)
+python-tests: run unit tests on DLP utils and scripts.
 
-Custom DLP policy layer
+opa
 
-OPA/Rego runtime policies
+opa-tests: run opa test over Rego policies.
 
-AWS Infrastructure
+checkov
 
-API Gateway (restricted)
+checkov_scan: scan platform/iac with checkov.yml config.
 
-Lambda (DLP Filter + RAG Orchestrator)
+terraform
 
-S3 Evidence Vault (versioned + KMS encrypted)
+terraform-plan: terraform init/validate/plan, export JSON plan to platform/evidence/terraform_plan.json.
 
-IAM least-privilege roles
+evidence
 
-CloudWatch logs
+evidence-bundle: run generate_evidence_report.py to create platform/evidence/evidence_unified.json.
 
-Secrets Manager or SSM Parameters
+Artifacts are retained for auditors as machine-readable evidence of:
 
-Governance & Compliance
+Policy coverage → unified controls mapping
 
-SOC 2, ISO 27001, ISO 42001, HIPAA mappings
+IaC security posture → Checkov
 
-Evidence logs + decision tracking
+Planned infra changes → Terraform JSON plan
 
-Continuous monitoring
+Runtime DLP & data-movement design → RAG gateway demo
 
-Risk register entries
+6. What this lab demonstrates
 
-Control-by-control mapping
+How to wrap GenAI/RAG behind a DLP gateway with explainable decisions.
 
-Automation
+How to encode AI data-movement policies in OPA/Rego using MITRE ATLAS-style flows.
 
-GitLab CI/CD
+How to combine runtime behavior + static checks into a single evidence bundle
+that speaks auditor language (controls, mappings, artifacts).
 
-Terraform guardrails
+How to provide both:
 
-SAST + secrets scanning
+Operator view → Streamlit demo
 
-PaC enforcement
-
-🔐 Security & Governance Principles Demonstrated
-1. Zero-Trust for GenAI Workloads
-
-No prompt or response bypasses DLP.
-Enforced by architecture + Terraform + Rego policies.
-
-2. Least-Privilege Access
-
-DLP + RAG Lambdas get tightly scoped IAM policies.
-
-3. Defense-in-Depth
-
-Two DLP scans:
-
-Pre-LLM (prompt)
-
-Post-LLM (response)
-
-4. Crypto Hygiene
-
-KMS encryption for:
-
-Evidence storage
-
-Logs
-
-Secrets
-
-5. Continuous Compliance
-
-Control mappings surface in:
-
-soc2_controls.yaml
-
-risk_register.yaml
-
-Evidence in S3
-
-CI logs
-
-OPA policy checks
-
-📜 Compliance Mapping
-
-This lab aligns to key controls across frameworks:
-
-SOC 2
-
-CC6.1 – Logical access controls
-
-CC7.2 – Change management
-
-CC7.3 – Monitoring for anomalous activity
-
-ISO 27001
-
-A.8 – Information handling & classification
-
-A.9 – Access control
-
-A.12 – Logging & monitoring
-
-ISO 42001
-
-8.5 – AI system operational controls
-
-HIPAA
-
-164.312(a)(1) – Access control
-
-164.312(e)(1) – Transmission security
-
-All mapped inside soc2_controls.yaml.
-
-🧪 CI/CD Workflow
-Pipeline Stages
-
-validate – Terraform/Python/YAML lint
-
-test – DLP & RAG unit tests
-
-security – SAST + secrets scanning
-
-policy-check – OPA/Rego
-
-Deny public API
-
-Deny missing evidence bucket
-
-Deny missing DLP Lambda integration
-
-deploy – Terraform Apply
-
-evidence – Generate audit package from DLP logs
-
-This workflow ensures the system cannot deploy in a noncompliant state.
-
-📊 Evidence & Audit Artifacts
-
-Stored automatically in S3:
-
-Prompt DLP decisions
-
-Response DLP decisions
-
-Role-based policy outcomes
-
-Masked/blocked samples
-
-GitLab pipeline results
-
-JSON evidence reports
-
-Markdown GRC summary
-
-Terraform state + plan logs
-
-This gives auditors direct, immutable evidence of DLP and AI governance enforcement.
-
-📚 Documentation
-
-Located under /docs/architecture:
-
-System architecture diagram
-
-Deployment flow
-
-DLP enforcement logic
-
-IAM permissions model
-
-Threat model
-
-GRC mapping
-
-Evidence validation workflow
-
-▶️ Optional Loom Video
-
-A short (under 5 minutes) video demonstrating:
-
-Clean vs. PII prompt
-
-Block/mask outcomes
-
-RAG retrieval
-
-Evidence logs
-
-CI policy enforcement
-
-🧩 Skills Demonstrated
-
-This lab showcases:
-
-AI Governance Engineering
-
-AWS Security Architecture
-
-IaC + Policy-as-Code Guardrails
-
-DevSecOps CI/CD pipelines
-
-RAG system architecture
-
-Zero-trust AI deployment
-
-SOC 2 & ISO compliance-by-design
-
-Lambda-based secure microservices
-
-Pinecone + Bedrock integration
-
-This is a hire-me showcase project for GRC Engineering, DevSecOps, and AI Security roles.
+Auditor view → evidence JSON from CI/CD

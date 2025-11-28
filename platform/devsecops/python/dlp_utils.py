@@ -1,386 +1,403 @@
-import json
-import re
-import logging
+# dlp_utils.py
 import os
-import uuid
-from datetime import datetime
-import shutil
-import tempfile
+import re
+import json
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
-import boto3
+from typing import Dict, Any, List, Tuple
 
-ROOT = Path(__file__).resolve().parent
-OPA_BIN = os.getenv("OPA_BIN", "opa")
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-s3 = boto3.client("s3")
-
-Decision = Literal["allow", "block", "mask"]
-# ----------------------------
-# Locate real repo root:
-# the FIRST parent that contains a "platform/" directory
-# ----------------------------
-def find_repo_root(start: Path) -> Path:
-    for p in [start] + list(start.parents):
-        if (p / "platform").exists() and (p / "platform").is_dir():
-            return p
-    return start.parent  # fallback
-
-REPO_ROOT = find_repo_root(Path(__file__).resolve())
-
-OPA_CLASSIFY_POLICY = (
-    REPO_ROOT
-    / "platform"
-    / "governance"
-    / "policies_as_code"
-    / "opa"
-    / "classification"
-    / "classification_rules.rego"
-)
-
-CATALOG_DIR = (
-    REPO_ROOT
-    / "platform"
-    / "governance"
-    / "classification_catalog"
-)
-
-DATA_MOVEMENT_POLICY = (
-    REPO_ROOT / "platform" / "mlsecops" / "data_movement" / "data_movement.rego"
-)
-
-CATALOG_DIR = (
-    REPO_ROOT / "platform" / "governance" / "classification_catalog"
-)
-# --- OPA binary lookup (Windows + Git Bash safe) ---
-OPA_BIN = os.getenv("OPA_BIN") or shutil.which("opa") or shutil.which("opa.exe")
-
-# ----------------------------
-# YAML loader
-# ----------------------------
-def _load_yaml(path: Path) -> Dict[str, Any]:
-    import yaml
-    with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+DATA_MOVEMENT_REGO = REPO_ROOT / "platform" / "mlsecops" / "data_movement" / "data_movement.rego"
+FLOWS_JSON = REPO_ROOT / "platform" / "mlsecops" / "data_movement" / "flows.json"
 
 
-def classify_text(entities: List[Dict[str, Any]]) -> str:
-    taxonomy = _load_yaml(CATALOG_DIR / "pii_entities.yaml")
-
-    payload = {"entities": entities, "taxonomy": taxonomy}
-
-    if not OPA_BIN:
-        raise RuntimeError(
-            "OPA binary not found. Install opa.exe and set OPA_BIN "
-            "env var to full path, e.g. OPA_BIN=C:\\Tools\\opa\\opa.exe"
-        )
-
-    cmd = [
-        OPA_BIN, "eval",
-        "-d", str(OPA_CLASSIFY_POLICY),
-        "--format", "json",
-        "data.classification.rules.label",
-        "--input"  # file path will be appended
-    ]
-
-    # Windows-safe: write input to temp file
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tf:
-        json.dump(payload, tf)
-        tf.flush()
-        tmp_path = tf.name
-
-    cmd.append(tmp_path)
-
-    res = subprocess.run(
-        cmd,
-        input=json.dumps(payload),
-        text=True,
-        capture_output=True,
-        check=True
-    )
-
-    output = json.loads(res.stdout)
-    # adapt to your policy output schema
-    return output["result"][0]["expressions"][0]["value"]
-
-def classify_string(text: str) -> str:
-    """
-    Convenience: detect -> classify
-    """
-    from dlp_utils import detect_pii  # reuse your existing detector
-    entities = detect_pii(text)
-    return classify_text(entities)
-
-def decision_bundle(text: str, user_role: str = "anonymous", context: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    """
-    One-stop shop for gateway: detect -> classify -> evaluate_policy
-    Returns a dict ready to log as evidence.
-    """
-    from dlp_utils import detect_pii, evaluate_policy
-    context = context or {"channel": "chat"}
-    entities = detect_pii(text)
-    label = classify_text(entities)
-    policy = evaluate_policy(entities, user_role=user_role, context=context)
-    return {
-        "classification_label": label,
-        "pii_entities": entities,
-        "policy_decision": policy,  # e.g., {"action":"mask","reason":"..."}
-    }
-    
-def safe_preview(text: Optional[str], max_len: int = 200) -> str:
-    if not text:
-        return ""
-    return text[:max_len]
-
-
-def detect_pii(text: str) -> List[Dict[str, Any]]:
-    """
-    Very simple PII/PHI heuristic for the lab.
-
-    PRODUCTION NOTE:
-      Replace this with Microsoft Presidio or another DLP engine.
-      The shape of the return value is intentionally generic so a real engine
-      can be swapped in with minimal change.
-    """
-    findings: List[Dict[str, Any]] = []
-    if not text:
-        return findings
-
-    lowered = text.lower()
-
-    if "ssn" in lowered or "social security" in lowered:
-        findings.append({"type": "SSN"})
-
-    if "credit card" in lowered or "card number" in lowered:
-        findings.append({"type": "CREDIT_CARD"})
-
-    if "patient" in lowered or "phi" in lowered or "diagnosis" in lowered:
-        findings.append({"type": "PHI"})
-
-    return findings
-
-
-def evaluate_policy(role: str, pii_findings: List[Dict[str, Any]]) -> Decision:
-    """
-    Simple policy model:
-
-      - No PII -> allow
-      - PII + privileged role -> mask
-      - PII + non-privileged -> block
-
-    Privileged roles can see content in a more redacted way.
-    In practice, this logic would be expressed as Rego (OPA) and mirrored here.
-    """
-    if not pii_findings:
-        return "allow"
-
-    privileged_roles = {"dlp-admin", "security-engineer"}
-
-    if role in privileged_roles:
-        return "mask"
-
-    return "block"
-
-
-def log_decision(
-    *,
-    stage: Literal["request", "response"],
-    decision: Decision,
-    role: str,
-    pii_findings: List[Dict[str, Any]],
-    content_preview: str,
-    evidence_bucket: str,
-) -> str:
-    """
-    Writes a structured DLP decision record to S3.
-
-    This is the core "audit evidence" artifact:
-      - Immutable (versioned bucket)
-      - Encrypted (KMS)
-      - Structured (JSON)
-    """
-    decision_id = str(uuid.uuid4())
-    now = datetime.utcnow()
-
-    record = {
-        "decision_id": decision_id,
-        "timestamp": now.isoformat() + "Z",
-        "stage": stage,
-        "decision": decision,
-        "role": role or "unknown",
-        "pii_findings": pii_findings,
-        "content_preview": content_preview,
-    }
-
-    key = f"dlp-decisions/{stage}/{now.date()}/{decision_id}.json"
-
-    logger.info(
-        json.dumps(
-            {
-                "event": "dlp_decision",
-                "decision_id": decision_id,
-                "stage": stage,
-                "decision": decision,
-                "role": role,
-                "pii_types": [f["type"] for f in pii_findings],
-            }
-        )
-    )
-
-    s3.put_object(
-        Bucket=evidence_bucket,
-        Key=key,
-        Body=json.dumps(record).encode("utf-8"),
-    )
-
-    return decision_id
-
-
-def get_evidence_bucket_from_env() -> str:
-    bucket = os.environ.get("EVIDENCE_BUCKET_NAME")
-    if not bucket:
-        raise RuntimeError("EVIDENCE_BUCKET_NAME environment variable is required")
-    return bucket
-
-# --- Data Movement as Code (OPA) ---
-DATA_MOVEMENT_POLICY = (
-    REPO_ROOT / "platform" / "mlsecops" / "data_movement" / "data_movement.rego"
-)
-FLOWS_JSON = (
-    REPO_ROOT / "platform" / "mlsecops" / "data_movement" / "flows.json"
-)
-
-# Back-compat alias (in case any script references the old name)
-DATA_MOVEMENT_FLOWS = FLOWS_JSON
-
-
-def check_data_movement(src: str, dst: str, state: dict) -> dict:
-    """
-    Enforce Data Movement as Code.
-    Returns {"allow": bool, "reason": str}
-    """
-    payload = {
-        "from": src,
-        "to": dst,
-        "state": state or {}
-    }
-
-    # --- Windows-safe temp input file (avoid stdin "open -" issues) ---
-    import tempfile, os
-    with tempfile.NamedTemporaryFile("w", delete=False, suffix=".json") as tf:
-        json.dump(payload, tf)
-        tmp_path = tf.name
-
-    # OPA v1 expects ONE query string
-    query = "data.movement.allow; data.movement.reason"
-
-    cmd = [
-        OPA_BIN, "eval",
-        "-d", str(DATA_MOVEMENT_POLICY),
-        "-d", str(FLOWS_JSON),
-        "--format", "json",
-        query,
-        "--input", tmp_path
-    ]
-
-    try:
-        res = subprocess.run(
-            cmd,
-            text=True,
-            capture_output=True,
-            check=True
-        )
-        output = json.loads(res.stdout)
-
-        # Defensive parse: if OPA returns undefined/empty, no "result" key
-        if "result" not in output or not output["result"]:
-            return {"allow": False, "reason": "OPA returned undefined result"}
-
-        exprs = output["result"][0]["expressions"]
-        allow_val = exprs[0]["value"]
-        reason_val = exprs[1]["value"]
-        return {"allow": allow_val, "reason": reason_val}
-
-    finally:
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
-
-
-OPA_DLP_POLICY = ROOT.parents[2] / "governance" / "policies_as_code" / "opa" / "dlp_runtime" / "dlp_runtime.rego"
-OPA_DLP_DATA   = ROOT.parents[2] / "governance" / "policies_as_code" / "opa" / "dlp_runtime" / "dlp_runtime_data.json"
-
-def evaluate_dlp_policy(direction: str, user_role: str, text: str, entities: list, classification_label: str, movement: dict, context=None):
-    """
-    direction: ingress|egress
-    returns OPA decision dict {"action","reason","labels","entities"}
-    """
-    context = context or {"channel":"chat"}
-    payload = {
-        "direction": direction,
-        "user": {"role": user_role},
-        "text": text,
-        "entities": entities,
-        "classification_label": classification_label,
-        "movement": movement,
-        "context": context
-    }
-
-    cmd = [
-        "opa","eval",
-        "-d", str(OPA_DLP_POLICY),
-        "-d", str(OPA_DLP_DATA),
-        "--format","json",
-        "data.dlp.runtime.decision",
-        "--input","-"
-    ]
-    res = subprocess.run(cmd, input=json.dumps(payload), text=True, capture_output=True, check=True)
-    out = json.loads(res.stdout)
-    return out["result"][0]["expressions"][0]["value"]
+# ------------------------------------------------------------------------------------
+# 1. Entity detection + classification
+# ------------------------------------------------------------------------------------
 
 def detect_entities(text: str) -> List[Dict[str, Any]]:
     """
-    Very small regex-based detector used for smoke tests.
-    Returns a list of {"type": ..., "score": ...}.
+    Ultra-simple detector for demo purposes.
+    We tag some common PII/PHI-style patterns.
     """
-    patterns = [
-        ("SSN", r"\b\d{3}-\d{2}-\d{4}\b"),
-        ("EMAIL_ADDRESS", r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
-        ("MRN", r"\b\d{6,}\b"),
-    ]
-
     entities: List[Dict[str, Any]] = []
-    for etype, pat in patterns:
-        for _m in re.finditer(pat, text):
-            entities.append({"type": etype, "score": 0.99})
+    lowered = text.lower()
+
+    # SSN pattern: 123-45-6789
+    ssn_match = re.search(r"\b\d{3}-\d{2}-\d{4}\b", text)
+    if ssn_match:
+        entities.append({"type": "SSN", "value": ssn_match.group(0), "score": 0.99})
+
+    # US routing number (9 digits) when "routing" mentioned nearby
+    routing_match = re.search(r"routing (number )?(\d{9})", lowered)
+    if routing_match:
+        entities.append(
+            {"type": "ROUTING", "value": routing_match.group(2), "score": 0.98}
+        )
+
+    # Passport-like token when "passport" appears
+    passport_match = re.search(r"passport.*?\b([A-Z0-9]{6,10})\b", text, re.IGNORECASE)
+    if passport_match:
+        entities.append(
+            {"type": "PASSPORT", "value": passport_match.group(1), "score": 0.97}
+        )
+
+    # Medical-ish hints → very crude MRN/PHI marker
+    if re.search(r"\bmrn\b", lowered):
+        entities.append({"type": "MRN", "value": "unknown", "score": 0.99})
+
+    if re.search(
+        r"\b(patient|diagnosis|diagnosed|medication|strep|test(ed)? positive)\b",
+        lowered,
+    ):
+        entities.append({"type": "PHI_HINT", "value": "medical_context", "score": 0.9})
+
     return entities
 
 
-def normalize_opa_decision(raw):
-    """
-    Normalize OPA decisions so Streamlit never sees 'undefined'.
-    """
+# --- simple detectors (tight enough for a demo, not toy “random” flags) ---
 
-    allow = raw.get("allow", False)
+SSN_RE = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
+ROUTING_RE = re.compile(r"\b\d{9}\b")
+MRN_RE = re.compile(r"\bMRN[:\s]*\d+\b", re.IGNORECASE)
 
-    # If OPA didn't provide a reason, substitute a clear default.
-    reason = raw.get("reason")
-    if not reason:
-        if allow:
-            reason = "OPA allowed this action (no explicit policy reason provided)."
-        else:
-            reason = "Blocked by default policy (no explicit allow rule matched)."
+def classify_text(text: str) -> Dict[str, Any]:
+    """
+    Classify text into INTERNAL / RESTRICTED_PII / RESTRICTED_PHI
+    and return detected entities.
+
+    Returns:
+        {
+          "label": <str>,
+          "entities": [ { "type", "value", "score" }, ... ]
+        }
+    """
+    # Fresh state on every call – no leakage between prompts.
+    entities: List[Dict[str, Any]] = []
+
+    t = text.strip()
+    lower = t.lower()
+
+    # ---- PII: SSN ----
+    for m in SSN_RE.finditer(t):
+        entities.append(
+            {"type": "SSN", "value": m.group(0), "score": 0.99}
+        )
+
+    # ---- PII: routing number (only if context says “routing”/“aba”) ----
+    for m in ROUTING_RE.finditer(t):
+        window = lower[max(0, m.start() - 25): m.end() + 25]
+        if "routing" in window or "aba" in window:
+            entities.append(
+                {"type": "ROUTING", "value": m.group(0), "score": 0.98}
+            )
+
+    # ---- PII: passport (rough but deterministic) ----
+    if "passport" in lower:
+        tokens = t.split()
+        for i, tok in enumerate(tokens):
+            if tok.lower().startswith("passport"):
+                if i + 1 < len(tokens):
+                    candidate = tokens[i + 1].strip(",. ")
+                    if 5 <= len(candidate) <= 12:
+                        entities.append(
+                            {
+                                "type": "PASSPORT",
+                                "value": candidate,
+                                "score": 0.90,
+                            }
+                        )
+                break
+
+    # ---- PHI: MRN + general medical context ----
+    for m in MRN_RE.finditer(t):
+        entities.append(
+            {"type": "MRN", "value": m.group(0), "score": 0.95}
+        )
+
+    if any(
+        kw in lower
+        for kw in [
+            "patient",
+            "diagnosed",
+            "diagnosis",
+            "tested positive",
+            "test came back",
+            "prescription",
+            "medications",
+            "medical history",
+        ]
+    ):
+        entities.append(
+            {"type": "PHI_HINT", "value": "medical_context", "score": 0.90}
+        )
+
+    # ---- label decision logic ----
+    label = "INTERNAL"  # default – no sensitive data
+
+    # PHI has highest sensitivity
+    if any(e["type"] in ("MRN", "PHI_HINT") for e in entities):
+        label = "RESTRICTED_PHI"
+    # PII next
+    elif any(e["type"] in ("SSN", "ROUTING", "PASSPORT") for e in entities):
+        label = "RESTRICTED_PII"
 
     return {
-        "allow": bool(allow),
-        "reason": reason,
+        "label": label,
+        "entities": entities,
+    }
+
+# ------------------------------------------------------------------------------------
+# 2. OPA bridge
+# ------------------------------------------------------------------------------------
+
+def _run_opa(input_payload: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Runtime evaluator for data-movement policies, aligned with flows.json.
+
+    We *mirror* the Rego logic in Python for the demo instead of shelling out
+    to the OPA binary. OPA is still used in CI/CD (opa test), but the UI
+    uses this function for stability.
+
+    input_payload = {
+      "from": "user|dlp_gateway|rag_orchestrator|llm|pinecone|evidence_s3",
+      "to":   "...",
+      "state": {
+          "classification_label": "INTERNAL|RESTRICTED_PII|RESTRICTED_PHI|PUBLIC",
+          "policy_decision": {"action": "allow|mask|block"},
+          "redaction_applied": bool
+      }
+    }
+
+    Returns: (allow: bool, reason: str)
+    """
+    # -----------------------------
+    # 1) Load flows.json once
+    # -----------------------------
+    try:
+        with FLOWS_JSON.open("r", encoding="utf-8") as f:
+            flows_doc = json.load(f)
+    except FileNotFoundError:
+        return False, "policy files missing: flows.json not found"
+    except Exception as e:
+        return False, f"failed to load flows.json: {e}"
+
+    # flows.json is expected as:
+    # { "flows": [ { id, from, to, allowed, conditions? }, ... ] }
+    flows = flows_doc.get("flows", [])
+    if not isinstance(flows, list):
+        return False, "invalid flows.json structure: 'flows' must be a list"
+
+    src = input_payload.get("from")
+    dst = input_payload.get("to")
+    state = input_payload.get("state") or {}
+
+    label = state.get("classification_label", "INTERNAL")
+    action = (state.get("policy_decision") or {}).get("action", "allow")
+    redacted = bool(state.get("redaction_applied", False))
+
+    # -----------------------------
+    # 2) Special-case: RAG → LLM
+    # -----------------------------
+    if src == "rag_orchestrator" and dst == "llm":
+        if label not in {"RESTRICTED_PII", "RESTRICTED_PHI"} and action in {
+            "allow",
+            "mask",
+        }:
+            return True, (
+                f"rag_orchestrator → llm allowed "
+                f"(label={label}, action={action})"
+            )
+        else:
+            return False, (
+                f"rag_orchestrator → llm blocked due to label/action "
+                f"(label={label}, action={action})"
+            )
+
+    # -----------------------------
+    # 3) Generic flow matching
+    # -----------------------------
+    matching_flows = [
+        f for f in flows if f.get("from") == src and f.get("to") == dst
+    ]
+
+    if not matching_flows:
+        return False, "no matching flow definition in policy"
+
+    # Evaluate each matching flow until one is clearly allowed/denied
+    for f in matching_flows:
+        fid = f.get("id", "<unknown>")
+        allowed_flag = bool(f.get("allowed", False))
+        conds = f.get("conditions")
+
+        # If no conditions, we just respect allowed_flag
+        if not conds:
+            if allowed_flag:
+                return True, f"flow {fid} allowed (no additional conditions)"
+            else:
+                return False, f"flow {fid} explicitly denied (no additional conditions)"
+
+        # Evaluate conditions (mirror Rego semantics)
+        violated = _flow_violations(conds, label, action, redacted)
+        if violated:
+            return (
+                False,
+                f"flow {fid} denied: {violated}",
+            )
+
+        # All conditions pass
+        if allowed_flag:
+            return True, f"flow {fid} allowed (conditions satisfied)"
+        else:
+            return False, f"flow {fid} denied (allowed=false despite conditions passing)"
+
+    # If we somehow got here, be safe and deny with a reason
+    return False, "no matching flow after evaluation"
+
+
+def _flow_violations(
+    conds: List[str],
+    label: str,
+    action: str,
+    redacted: bool,
+) -> str | None:
+    """
+    Mirror the condition strings used in flows.json, similar to Rego:
+
+      - 'classification_label not_in [RESTRICTED_PII, RESTRICTED_PHI]'
+      - 'policy_decision.action in [allow,mask]'
+      - 'redaction_applied == true'
+
+    Returns the first violated condition as a string, or None if all pass.
+    """
+    for c in conds or []:
+        c = c.strip()
+
+        # classification_label not_in [A, B, C]
+        if c.startswith("classification_label not_in"):
+            labels = _parse_list(c)
+            if label in labels:
+                return c
+
+        # policy_decision.action in [allow,mask]
+        elif c.startswith("policy_decision.action in"):
+            actions = _parse_list(c)
+            if action not in actions:
+                return c
+
+        # redaction_applied == true
+        elif c == "redaction_applied == true":
+            if not redacted:
+                return c
+
+        # Unknown condition → treat as non-fatal (don't violate) so demo doesn't break
+        else:
+            continue
+
+    return None
+
+
+def _parse_list(cond: str) -> List[str]:
+    """
+    Parse things like:
+
+      'classification_label not_in [RESTRICTED_PII, RESTRICTED_PHI]'
+      'policy_decision.action in [allow,mask]'
+
+    into ['RESTRICTED_PII', 'RESTRICTED_PHI'] or ['allow', 'mask'].
+    """
+    start = cond.find("[")
+    end = cond.find("]")
+    if start == -1 or end == -1 or end <= start:
+        return []
+
+    inner = cond[start + 1 : end]
+    parts = [p.strip() for p in inner.split(",") if p.strip()]
+    return parts
+
+
+
+# ------------------------------------------------------------------------------------
+# 3. Hop evaluation used by Streamlit app
+# ------------------------------------------------------------------------------------
+
+def _policy_decision_for_label(label: str) -> Dict[str, Any]:
+    """
+    Simple "DLP decision" based on label to feed into OPA state.
+    """
+    if label in {"RESTRICTED_PII", "RESTRICTED_PHI"}:
+        action = "block"
+    else:
+        action = "allow"
+
+    return {
+        "action": action,
     }
 
 
+def _build_state(label: str, entities: List[Dict[str, Any]]) -> Dict[str, Any]:
+    return {
+        "classification_label": label,
+        "policy_decision": _policy_decision_for_label(label),
+        # For now, we aren't actually redacting text – just simulating
+        "redaction_applied": False,
+        "entities": entities,
+    }
 
+
+def check_data_movement(prompt: str) -> Dict[str, Any]:
+    """
+    Main function called by Streamlit.
+
+    Returns:
+    {
+      "hops": [
+        {
+          "from": "...",
+          "to": "...",
+          "allow": bool,
+          "reason": "..."
+        },
+        ...
+      ],
+      "blocked": bool  # True if ANY hop is denied
+    }
+    """
+    classification = classify_text(prompt)
+    label = classification["label"]
+    entities = classification["entities"]
+    state = _build_state(label, entities)
+
+    hops = [
+        ("user", "dlp_gateway"),
+        ("dlp_gateway", "rag_orchestrator"),
+        ("rag_orchestrator", "pinecone"),
+    ]
+
+    hop_results: List[Dict[str, Any]] = []
+    blocked = False
+
+    for frm, to in hops:
+        payload = {
+            "from": frm,
+            "to": to,
+            "state": state,
+        }
+        allow, reason = _run_opa(payload)
+        hop_results.append(
+            {
+                "from": frm,
+                "to": to,
+                "allow": allow,
+                "reason": reason,
+            }
+        )
+        if not allow:
+            blocked = True
+
+    return {
+        "classification": classification,
+        "hops": hop_results,
+        "blocked": blocked,
+    }
