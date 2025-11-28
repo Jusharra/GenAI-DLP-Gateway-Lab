@@ -89,7 +89,7 @@ evidence-bundle:
   stage: evidence
   script:
     # generate unified evidence JSON
-    - python -m platform.devsecops.python.scripts.generate_evidence_report
+    - python platform/devsecops/python/scripts/generate_evidence_report.py
     # zip up all evidence for auditors
     - cd platform/evidence && zip -r evidence_bundle_$(date -u +%Y%m%dT%H%M%SZ).zip .
   artifacts:
