@@ -332,28 +332,24 @@ def _policy_decision_for_label(label: str) -> Dict[str, Any]:
 
 def _build_state(label: str, entities: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Build the state object passed into OPA.
-
-    We keep the new lowercase labels for tests/UI (internal/pii/phi),
-    but normalize them here to the legacy labels that the OPA flows
-    and data_movement.rego expect.
+    Normalize classifier labels into the canonical values that
+    the OPA data_movement.rego policy expects.
     """
-    raw = (label or "").strip()
 
-    # Map new labels -> legacy OPA labels
-    lower = raw.lower()
-    if lower == "internal":
-        mapped = "INTERNAL"
-    elif lower == "pii":
-        mapped = "RESTRICTED_PII"
-    elif lower == "phi":
-        mapped = "RESTRICTED_PHI"
+    norm = (label or "").strip().lower()
+
+    if norm in ("restricted_pii", "pii"):
+        opa_label = "RESTRICTED_PII"
+    elif norm in ("restricted_phi", "phi"):
+        opa_label = "RESTRICTED_PHI"
+    elif norm in ("internal",):
+        opa_label = "INTERNAL"
     else:
-        # Fallback: if some unexpected label appears, treat it as INTERNAL
-        mapped = "INTERNAL"
+        # Failsafe – treat unknown labels as INTERNAL
+        opa_label = "INTERNAL"
 
     return {
-        "classification_label": mapped,
+        "classification_label": opa_label,
         "policy_decision": {"action": "allow"},
         "redaction_applied": False,
         "entities": entities,

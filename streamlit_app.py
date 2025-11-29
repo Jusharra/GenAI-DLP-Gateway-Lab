@@ -3,13 +3,22 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
-# --- Make sure Python can find dlp_utils.py ---
+# --- Force Python to use the repo's dlp_utils.py ---
 ROOT = Path(__file__).resolve().parent
 DLP_PATH = ROOT / "platform" / "devsecops" / "python"
-if str(DLP_PATH) not in sys.path:
-    sys.path.insert(0, str(DLP_PATH))
+
+# Put our path at the front so it's searched first
+sys.path.insert(0, str(DLP_PATH))
+
+# If dlp_utils was already imported from somewhere else, drop it
+if "dlp_utils" in sys.modules:
+    del sys.modules["dlp_utils"]
+
+import dlp_utils  # now guaranteed to come from DLP_PATH
+print("dlp_utils loaded from:", dlp_utils.__file__)  # sanity check in terminal
 
 from dlp_utils import classify_text, detect_entities, check_data_movement
+
 import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -83,19 +92,36 @@ def simulate_flow(
     src: str, dst: str, classification_label: str
 ) -> Dict[str, Any]:
     """
-    Use your existing dlp_utils.check_data_movement to evaluate hops.
+    Adapter between the friendly labels from classify_text()
+    and the strict labels expected by the OPA policy.
     """
+
+    # Normalize what the classifier gives us into what Rego expects
+    norm = (classification_label or "").strip().lower()
+
+    if norm in ("phi", "restricted_phi"):
+        opa_label = "RESTRICTED_PHI"
+    elif norm in ("restricted_pii", "pii"):
+        opa_label = "RESTRICTED_PII"
+    elif norm in ("internal",):
+        opa_label = "INTERNAL"
+    else:
+        # Failsafe – treat unknown labels as INTERNAL
+        opa_label = "INTERNAL"
+
     state = {
-        "classification_label": classification_label,
+        "classification_label": opa_label,
         "policy_decision": {"action": "allow"},
         "redaction_applied": False,
     }
+
     try:
         decision = check_data_movement(src, dst, state)
     except Exception as e:
         return {"allow": False, "reason": f"OPA error: {e}"}
 
     return decision
+
 
 def summarize_rag_results(prompt: str, matches: List[Dict[str, Any]]) -> str:
     """
