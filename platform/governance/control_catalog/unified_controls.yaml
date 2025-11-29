@@ -29,12 +29,13 @@ controls:
         ref: "164.308(a)(1)"
     tools:
       opa_policies:
-        - policies/governance/policy_enablement.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp12_policy_as_code.rego
       checkov_checks:
         - CKV_GENERIC_1   # Baseline policy files present in repo
       evidence_sources:
-        - platform/docs/security_policy.md
-        - platform/docs/ai_governance_policy.md
+        - platform/governance/classification_catalog/classification.yaml
+        - platform/governance/compliance_as_code/checkov/mappings/iso27001_controls.yaml
+        - platform/governance/compliance_as_code/checkov/mappings/iso42001_controls.yaml
 
   - id: GOV-02
     name: Roles, Responsibilities & Separation of Duties
@@ -57,12 +58,12 @@ controls:
         ref: "164.308(a)(2)"
     tools:
       opa_policies:
-        - policies/governance/role_based_access.rego
+        - platform/governance/policies_as_code/opa/terraform/controls/iso27001_access.rego
       checkov_checks:
         - CKV_AWS_111   # IAM policies attached to groups/roles, not users
       evidence_sources:
-        - platform/iam/role_matrix.csv
-        - platform/evidence/iam_role_assignments.json
+        - platform/governance/risk_register/risk_register.yaml
+        - platform/evidence/evidence_unified.json
 
   - id: GOV-03
     name: Risk Assessment for Data & AI Workloads
@@ -86,12 +87,13 @@ controls:
         ref: "164.308(a)(1)(ii)(A)-(B)"
     tools:
       opa_policies:
-        - policies/risk/data_movement_risk.rego
+        - platform/governance/policies_as_code/opa/terraform/controls/iso42001_ai_risk_data.rego
       checkov_checks:
         - CKV_AWS_20    # S3 server-side encryption
         - CKV_AWS_18    # S3 access logging
       evidence_sources:
-        - platform/risk_register/ai_risk_register.yaml
+        - platform/governance/risk_register/risk_register.yaml
+        - platform/governance/compliance_as_code/checkov/mappings/iso42001_controls.yaml
         - platform/evidence/evidence_unified.json
 
 ################################################################################
@@ -119,12 +121,13 @@ controls:
         ref: "164.308(a)(3), 164.306(a)"
     tools:
       opa_policies:
-        - policies/dlp/classification.rego
+        - platform/governance/policies_as_code/opa/classification/classification_rules.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp02_classification.rego
       checkov_checks:
         - CKV_AWS_21    # S3 buckets not publicly readable
       evidence_sources:
-        - platform/devsecops/python/pii_entities.yaml
-        - platform/evidence/dlp_classification_samples.json
+        - platform/governance/classification_catalog/classification.yaml
+        - platform/governance/classification_catalog/pii_entities.yaml
 
   - id: DATA-02
     name: Data Leakage Prevention & Data Movement Guardrails
@@ -147,13 +150,13 @@ controls:
         ref: "164.312(e)(1), 164.308(a)(3), 164.312(b)"
     tools:
       opa_policies:
-        - policies/dlp/data_movement.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp10_data_movement.rego
       checkov_checks:
         - CKV_AWS_53    # S3 bucket public access block
         - CKV_AWS_145   # S3 bucket versioning / recovery
       evidence_sources:
         - platform/mlsecops/data_movement/flows.json
-        - platform/evidence/data_movement_decisions.json
+        - platform/evidence/evidence_unified.json
 
   - id: DATA-03
     name: Data Minimization & Retention
@@ -174,12 +177,12 @@ controls:
         ref: "164.310(d)(2), 164.306(a)"
     tools:
       opa_policies:
-        - policies/privacy/data_retention.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp07_quarantine.rego
       checkov_checks:
         - CKV_AWS_149   # RDS backup retention
       evidence_sources:
-        - platform/evidence/data_retention_plan.json
-        - platform/evidence/dlp_quarantine_deletions.log
+        - platform/governance/risk_register/risk_register.yaml
+        - platform/evidence/evidence_unified.json
 
 ################################################################################
 # ACCESS CONTROL & IDENTITY
@@ -206,12 +209,13 @@ controls:
         ref: "164.308(a)(3), 164.308(a)(4), 164.312(a)"
     tools:
       opa_policies:
-        - policies/iam/zero_trust_iam.rego
+        - platform/governance/policies_as_code/opa/terraform/controls/iso27001_access.rego
+        - platform/governance/policies_as_code/opa/terraform/terraform_guardrails.rego
       checkov_checks:
         - CKV_AWS_40    # IAM users with full admin privileges
         - CKV_AWS_41    # IAM policies allow * actions
       evidence_sources:
-        - platform/evidence/iam_least_privilege_findings.json
+        - platform/evidence/evidence_unified.json
 
   - id: ACCESS-02
     name: Authentication, MFA & Session Security
@@ -231,11 +235,11 @@ controls:
         ref: "164.312(d), 164.308(a)(5)"
     tools:
       opa_policies:
-        - policies/iam/session_controls.rego
+        - platform/governance/policies_as_code/opa/terraform/terraform_guardrails.rego
       checkov_checks:
         - CKV_AWS_189   # Ensure root account MFA is enabled
       evidence_sources:
-        - platform/evidence/auth_mfa_status.json
+        - platform/evidence/evidence_unified.json
 
 ################################################################################
 # PRIVACY & ISO 27701 ALIGNMENT
@@ -260,10 +264,11 @@ controls:
         ref: "164.308(a)(1), 164.308(a)(2)"
     tools:
       opa_policies:
-        - policies/privacy/privacy_governance.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp12_policy_as_code.rego
       checkov_checks: []
       evidence_sources:
-        - platform/docs/privacy_program_charter.md
+        - platform/governance/risk_register/risk_register.yaml
+        - platform/evidence/evidence_unified.json
 
   - id: PRIV-02
     name: Records of Processing & Data Flows
@@ -284,10 +289,10 @@ controls:
         ref: "164.308(a)(1), 164.316(b)"
     tools:
       opa_policies:
-        - policies/privacy/data_flow_consistency.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp10_data_movement.rego
       checkov_checks: []
       evidence_sources:
-        - platform/privacy/records_of_processing.yaml
+        - platform/governance/classification_catalog/classification.yaml
         - platform/mlsecops/data_movement/flows.json
 
   - id: PRIV-03
@@ -309,10 +314,11 @@ controls:
         ref: "164.308(b)(1)"
     tools:
       opa_policies:
-        - policies/vendor/third_party_data_use.rego
+        - platform/governance/policies_as_code/opa/terraform/controls/iso27001_change_supplier.rego
       checkov_checks: []
       evidence_sources:
-        - platform/vendor_management/processor_register.csv
+        - platform/governance/risk_register/risk_register.yaml
+        - platform/evidence/evidence_unified.json
 
 ################################################################################
 # HIPAA SECURITY RULE – SAFEGUARDS
@@ -334,12 +340,13 @@ controls:
         ref: "A.8.24, A.8.25, A.8.28"
     tools:
       opa_policies:
-        - policies/crypto/encryption_required.rego
+        - platform/governance/policies_as_code/opa/terraform/controls/iso27001_crypto_logging.rego
+        - platform/governance/policies_as_code/opa/terraform/terraform_guardrails.rego
       checkov_checks:
         - CKV_AWS_19    # EBS volume encryption
         - CKV_AWS_20    # S3 SSE enabled
       evidence_sources:
-        - platform/evidence/encryption_status.json
+        - platform/evidence/evidence_unified.json
 
   - id: HIPAA-TECH-02
     name: Audit Logging & Integrity Controls
@@ -358,12 +365,12 @@ controls:
         ref: "A.8.15, A.8.16, A.8.9"
     tools:
       opa_policies:
-        - policies/logging/log_required.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp06_logging.rego
+        - platform/governance/policies_as_code/opa/terraform/controls/iso27001_crypto_logging.rego
       checkov_checks:
         - CKV_AWS_158   # CloudTrail enabled
       evidence_sources:
-        - platform/evidence/audit_logs_snapshot.json
-        - platform/evidence/data_movement_decisions.json
+        - platform/evidence/evidence_unified.json
 
 ################################################################################
 # AI-SPECIFIC CONTROLS (ISO 42001 + NIST AI RMF + OWASP LLM)
@@ -388,10 +395,12 @@ controls:
         ref: "MAP-1, MEASURE-1"
     tools:
       opa_policies:
-        - policies/datasets/dataset_registration.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp14_training_data.rego
+        - platform/governance/policies_as_code/opa/classification/classification_rules.rego
       checkov_checks: []
       evidence_sources:
-        - platform/evidence/ai_dataset_inventory.json
+        - platform/governance/classification_catalog/classification.yaml
+        - platform/governance/risk_register/risk_register.yaml
 
   - id: AI-02
     name: AI Robustness, Abuse Resistance & Monitoring
@@ -411,11 +420,14 @@ controls:
         ref: "LLM01, LLM02, LLM08, LLM09"
     tools:
       opa_policies:
-        - policies/ai/prompt_injection_guardrails.rego
-        - policies/ai/rag_safety.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp03_prompt_injection.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp05_rag_acl.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp09_agentic_safety.rego
       checkov_checks: []
       evidence_sources:
-        - platform/evidence/ai_security_events.json
+        - platform/governance/compliance_as_code/checkov/mappings/owasp_llm_top10_2025.yaml
+        - platform/mlsecops/data_movement/flows.json
+        - platform/evidence/evidence_unified.json
 
   - id: AI-03
     name: Human Oversight & Explainability
@@ -434,8 +446,8 @@ controls:
         ref: "GOVERN-1, MANAGE-1"
     tools:
       opa_policies:
-        - policies/dlp/human_review_escalation.rego
+        - platform/governance/policies_as_code/opa/dlp/dlp13_evidence.rego
+        - platform/governance/policies_as_code/opa/dlp_runtime/dlp_runtime.rego
       checkov_checks: []
       evidence_sources:
-        - platform/evidence/data_movement_decisions.json
-        - platform/evidence/human_review_cases.json
+        - platform/evidence/evidence_unified.json
