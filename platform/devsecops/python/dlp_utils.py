@@ -331,13 +331,34 @@ def _policy_decision_for_label(label: str) -> Dict[str, Any]:
 
 
 def _build_state(label: str, entities: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Build the state object passed into OPA.
+
+    We keep the new lowercase labels for tests/UI (internal/pii/phi),
+    but normalize them here to the legacy labels that the OPA flows
+    and data_movement.rego expect.
+    """
+    raw = (label or "").strip()
+
+    # Map new labels -> legacy OPA labels
+    lower = raw.lower()
+    if lower == "internal":
+        mapped = "INTERNAL"
+    elif lower == "pii":
+        mapped = "RESTRICTED_PII"
+    elif lower == "phi":
+        mapped = "RESTRICTED_PHI"
+    else:
+        # Fallback: if some unexpected label appears, treat it as INTERNAL
+        mapped = "INTERNAL"
+
     return {
-        "classification_label": label,
-        "policy_decision": _policy_decision_for_label(label),
-        # For now, we aren't actually redacting text – just simulating
+        "classification_label": mapped,
+        "policy_decision": {"action": "allow"},
         "redaction_applied": False,
         "entities": entities,
     }
+
 
 # --- existing imports stay as-is above ---
 

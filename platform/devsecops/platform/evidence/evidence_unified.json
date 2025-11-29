@@ -1,0 +1,1155 @@
+{
+  "run_metadata": {
+    "generated_at_utc": "2025-11-29T03:02:40.023881Z",
+    "tool": "GenAI-DLP-Gateway-Lab evidence merger"
+  },
+  "controls": [
+    {
+      "id": "GOV-01",
+      "name": "Information Security & AI Policy",
+      "description": "Define, approve, communicate, and maintain a unified information security and AI governance policy covering data use, DLP, RAG, and AI agents.\n",
+      "domain": "Governance",
+      "requirement": "The organization SHALL maintain documented security and AI policies that define objectives, scope, roles, responsibilities, and enforcement mechanisms, and SHALL review them at planned intervals or when major changes occur.\n",
+      "frameworks": [
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.1, A.5.2"
+        },
+        {
+          "name": "ISO42001:2023",
+          "ref": "5.2, 6.1, 6.3"
+        },
+        {
+          "name": "ISO27701",
+          "ref": "5.2.1, 5.3.1"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.308(a)(1)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/dlp/dlp12_policy_as_code.rego"
+        ],
+        "checkov_checks": [
+          "CKV_GENERIC_1"
+        ],
+        "evidence_sources": [
+          "platform/governance/classification_catalog/classification.yaml",
+          "platform/governance/compliance_as_code/checkov/mappings/iso27001_controls.yaml",
+          "platform/governance/compliance_as_code/checkov/mappings/iso42001_controls.yaml"
+        ]
+      }
+    },
+    {
+      "id": "GOV-02",
+      "name": "Roles, Responsibilities & Separation of Duties",
+      "description": "Define and assign responsibilities for security, privacy, and AI governance, including DLP owners and OPA policy maintainers.\n",
+      "domain": "Governance",
+      "requirement": "Security and privacy roles SHALL be clearly defined, assigned, and documented, including responsibilities for approving AI use cases, reviewing policies-as-code, and managing exceptions.\n",
+      "frameworks": [
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.3, A.6.1"
+        },
+        {
+          "name": "ISO42001:2023",
+          "ref": "5.3, 7.2"
+        },
+        {
+          "name": "ISO27701",
+          "ref": "5.3.1, 6.2.1"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.308(a)(2)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/terraform/controls/iso27001_access.rego"
+        ],
+        "checkov_checks": [
+          "CKV_AWS_111"
+        ],
+        "evidence_sources": [
+          "platform/governance/risk_register/risk_register.yaml",
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "GOV-03",
+      "name": "Risk Assessment for Data & AI Workloads",
+      "description": "Perform periodic risk assessments for workloads using RAG, DLP, and AI agents, including data movement and model misuse.\n",
+      "domain": "Risk",
+      "requirement": "The organization SHALL conduct documented risk assessments that consider threats to confidentiality, integrity, availability, and privacy for AI and non-AI workloads, and SHALL select controls to reduce risk to an acceptable level.\n",
+      "frameworks": [
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.7, A.8.28"
+        },
+        {
+          "name": "ISO42001:2023",
+          "ref": "6.1, 6.3"
+        },
+        {
+          "name": "ISO27701",
+          "ref": "5.2.1, 7.2.1"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.308(a)(1)(ii)(A)-(B)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/terraform/controls/iso42001_ai_risk_data.rego"
+        ],
+        "checkov_checks": [
+          "CKV_AWS_20",
+          "CKV_AWS_18"
+        ],
+        "evidence_sources": [
+          "platform/governance/risk_register/risk_register.yaml",
+          "platform/governance/compliance_as_code/checkov/mappings/iso42001_controls.yaml",
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "DATA-01",
+      "name": "Data Classification & Labeling",
+      "description": "Classify and label data (including prompts and RAG corpus) based on sensitivity, regulatory obligations, and AI-specific risk.\n",
+      "domain": "Technical",
+      "requirement": "Information and datasets SHALL be classified (e.g. PUBLIC, INTERNAL, RESTRICTED_PII, RESTRICTED_PHI) and SHALL carry labels or metadata that drive access controls, DLP rules, and OPA policy decisions.\n",
+      "frameworks": [
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.12, A.8.32, A.8.36, A.8.37"
+        },
+        {
+          "name": "ISO42001:2023",
+          "ref": "8.2, 8.3"
+        },
+        {
+          "name": "ISO27701",
+          "ref": "6.9.1, 7.2.2"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.308(a)(3), 164.306(a)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/classification/classification_rules.rego",
+          "platform/governance/policies_as_code/opa/dlp/dlp02_classification.rego"
+        ],
+        "checkov_checks": [
+          "CKV_AWS_21"
+        ],
+        "evidence_sources": [
+          "platform/governance/classification_catalog/classification.yaml",
+          "platform/governance/classification_catalog/pii_entities.yaml"
+        ]
+      }
+    },
+    {
+      "id": "DATA-02",
+      "name": "Data Leakage Prevention & Data Movement Guardrails",
+      "description": "Enforce DLP rules and OPA policies to prevent unauthorized movement of PHI/PII from prompts or RAG into logs, model outputs, or external systems.\n",
+      "domain": "Technical",
+      "requirement": "Controls SHALL detect, block, or mask unauthorized disclosure of sensitive information during collection, processing, storage, and transmission, including AI prompt and RAG traffic.\n",
+      "frameworks": [
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.8.34, A.8.35, A.8.36, A.8.38"
+        },
+        {
+          "name": "ISO42001:2023",
+          "ref": "8.4, 8.6, 8.7"
+        },
+        {
+          "name": "ISO27701",
+          "ref": "6.13.1, 7.4.6"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.312(e)(1), 164.308(a)(3), 164.312(b)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/dlp/dlp10_data_movement.rego"
+        ],
+        "checkov_checks": [
+          "CKV_AWS_53",
+          "CKV_AWS_145"
+        ],
+        "evidence_sources": [
+          "platform/mlsecops/data_movement/flows.json",
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "DATA-03",
+      "name": "Data Minimization & Retention",
+      "description": "Limit collection, retention, and replication of PHI/PII and AI training data to what is necessary for defined purposes.\n",
+      "domain": "Privacy",
+      "requirement": "Personal data SHALL be collected and retained only as needed for stated purposes and SHALL be securely disposed of or anonymized when no longer required.\n",
+      "frameworks": [
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.14, A.8.10"
+        },
+        {
+          "name": "ISO27701",
+          "ref": "7.3.1, 7.3.2, 7.4.1"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.310(d)(2), 164.306(a)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/dlp/dlp07_quarantine.rego"
+        ],
+        "checkov_checks": [
+          "CKV_AWS_149"
+        ],
+        "evidence_sources": [
+          "platform/governance/risk_register/risk_register.yaml",
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "ACCESS-01",
+      "name": "Identity Management & Least Privilege",
+      "description": "Enforce least privilege across IAM roles, AI agents, Lambdas, and infrastructure interacting with the DLP/RAG stack.\n",
+      "domain": "Technical",
+      "requirement": "Access to systems, PHI/PII, RAG indices, and AI tooling SHALL be limited to authorized identities and SHALL follow least-privilege principles, including periodic review and revocation.\n",
+      "frameworks": [
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.15, A.5.18, A.8.2"
+        },
+        {
+          "name": "ISO42001:2023",
+          "ref": "8.4, 8.6"
+        },
+        {
+          "name": "ISO27701",
+          "ref": "6.7.2, 7.2.1"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.308(a)(3), 164.308(a)(4), 164.312(a)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/terraform/controls/iso27001_access.rego",
+          "platform/governance/policies_as_code/opa/terraform/terraform_guardrails.rego"
+        ],
+        "checkov_checks": [
+          "CKV_AWS_40",
+          "CKV_AWS_41"
+        ],
+        "evidence_sources": [
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "ACCESS-02",
+      "name": "Authentication, MFA & Session Security",
+      "description": "Require strong authentication (including MFA) for consoles, CI/CD, and privileged AI operations (e.g., modifying OPA or Checkov configs).\n",
+      "domain": "Technical",
+      "requirement": "Systems SHALL require strong authentication mechanisms and MFA where appropriate, and sessions SHALL be protected against unauthorized use.\n",
+      "frameworks": [
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.17, A.8.24"
+        },
+        {
+          "name": "ISO27701",
+          "ref": "6.7.2"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.312(d), 164.308(a)(5)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/terraform/terraform_guardrails.rego"
+        ],
+        "checkov_checks": [
+          "CKV_AWS_189"
+        ],
+        "evidence_sources": [
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "PRIV-01",
+      "name": "Privacy Governance & Roles",
+      "description": "Establish privacy governance, including a designated privacy lead and oversight for AI that processes personal data.\n",
+      "domain": "Privacy",
+      "requirement": "The organization SHALL maintain governance for personal data processing, including defined responsibilities, reporting lines, and oversight for AI systems using PHI/PII.\n",
+      "frameworks": [
+        {
+          "name": "ISO27701",
+          "ref": "5.1, 5.2.1, 6.2.1"
+        },
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.1, A.5.3"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.308(a)(1), 164.308(a)(2)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/dlp/dlp12_policy_as_code.rego"
+        ],
+        "checkov_checks": [],
+        "evidence_sources": [
+          "platform/governance/risk_register/risk_register.yaml",
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "PRIV-02",
+      "name": "Records of Processing & Data Flows",
+      "description": "Maintain records of processing activities (RoPA) and data flow diagrams for AI and non-AI systems handling personal data.\n",
+      "domain": "Privacy",
+      "requirement": "Processing activities involving personal data SHALL be documented, including purposes, categories, recipients, data flows, and retention periods, and SHALL be reviewed regularly.\n",
+      "frameworks": [
+        {
+          "name": "ISO27701",
+          "ref": "7.2.1, 7.2.6"
+        },
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.8, A.5.9"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.308(a)(1), 164.316(b)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/dlp/dlp10_data_movement.rego"
+        ],
+        "checkov_checks": [],
+        "evidence_sources": [
+          "platform/governance/classification_catalog/classification.yaml",
+          "platform/mlsecops/data_movement/flows.json"
+        ]
+      }
+    },
+    {
+      "id": "PRIV-03",
+      "name": "Third-Party Processors & Cloud Vendors",
+      "description": "Manage and monitor processors (e.g., Pinecone, OpenAI) that handle personal data or embeddings derived from PHI/PII.\n",
+      "domain": "Privacy",
+      "requirement": "Third-party processors SHALL be subject to written agreements, risk assessments, and ongoing monitoring to ensure adequate protection of personal data.\n",
+      "frameworks": [
+        {
+          "name": "ISO27701",
+          "ref": "7.2.3, 7.5.1"
+        },
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.5.19, A.5.20"
+        },
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.308(b)(1)"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/terraform/controls/iso27001_change_supplier.rego"
+        ],
+        "checkov_checks": [],
+        "evidence_sources": [
+          "platform/governance/risk_register/risk_register.yaml",
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "HIPAA-TECH-01",
+      "name": "Encryption & Transmission Security",
+      "description": "Use encryption in transit and at rest for PHI and embeddings that may contain PHI/PII in the DLP + RAG pipeline.\n",
+      "domain": "Technical",
+      "requirement": "Electronic PHI SHALL be protected with encryption and integrity controls during transmission and storage where reasonable and appropriate.\n",
+      "frameworks": [
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.312(a)(2)(iv), 164.312(e)(1)"
+        },
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.8.24, A.8.25, A.8.28"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/terraform/controls/iso27001_crypto_logging.rego",
+          "platform/governance/policies_as_code/opa/terraform/terraform_guardrails.rego"
+        ],
+        "checkov_checks": [
+          "CKV_AWS_19",
+          "CKV_AWS_20"
+        ],
+        "evidence_sources": [
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "HIPAA-TECH-02",
+      "name": "Audit Logging & Integrity Controls",
+      "description": "Capture detailed logs for access to PHI, data movement decisions, and RAG retrieval events, with integrity protections.\n",
+      "domain": "Technical",
+      "requirement": "Systems SHALL implement audit controls that record and examine activity in systems containing or using ePHI and SHALL protect logs from tampering.\n",
+      "frameworks": [
+        {
+          "name": "HIPAA-Security",
+          "ref": "164.312(b), 164.312(c)(1)"
+        },
+        {
+          "name": "ISO27001:2022",
+          "ref": "A.8.15, A.8.16, A.8.9"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/dlp/dlp06_logging.rego",
+          "platform/governance/policies_as_code/opa/terraform/controls/iso27001_crypto_logging.rego"
+        ],
+        "checkov_checks": [
+          "CKV_AWS_158"
+        ],
+        "evidence_sources": [
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "AI-01",
+      "name": "AI Training & Inference Data Governance",
+      "description": "Govern datasets used to train and query AI models, ensuring lawful processing, quality, and protection against misuse.\n",
+      "domain": "AI Data Governance",
+      "requirement": "Training and inference datasets SHALL be documented, quality-checked, access-controlled, and reviewed for PHI/PII leakage and regulatory obligations.\n",
+      "frameworks": [
+        {
+          "name": "ISO42001:2023",
+          "ref": "8.2, 8.3"
+        },
+        {
+          "name": "ISO27701",
+          "ref": "7.2.2, 7.2.6"
+        },
+        {
+          "name": "NIST AI RMF",
+          "ref": "MAP-1, MEASURE-1"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/dlp/dlp14_training_data.rego",
+          "platform/governance/policies_as_code/opa/classification/classification_rules.rego"
+        ],
+        "checkov_checks": [],
+        "evidence_sources": [
+          "platform/governance/classification_catalog/classification.yaml",
+          "platform/governance/risk_register/risk_register.yaml"
+        ]
+      }
+    },
+    {
+      "id": "AI-02",
+      "name": "AI Robustness, Abuse Resistance & Monitoring",
+      "description": "Implement controls to detect prompt injection, jailbreak attempts, and anomalous RAG behavior, with ongoing monitoring.\n",
+      "domain": "AI Security",
+      "requirement": "AI systems SHALL be designed and monitored to resist adversarial prompts, misuse, and drift, and anomalies SHALL trigger alerts and investigation.\n",
+      "frameworks": [
+        {
+          "name": "ISO42001:2023",
+          "ref": "8.4, 8.5, 8.7"
+        },
+        {
+          "name": "NIST AI RMF",
+          "ref": "MANAGE-1, MONITOR-1"
+        },
+        {
+          "name": "OWASP LLM Top 10",
+          "ref": "LLM01, LLM02, LLM08, LLM09"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/dlp/dlp03_prompt_injection.rego",
+          "platform/governance/policies_as_code/opa/dlp/dlp05_rag_acl.rego",
+          "platform/governance/policies_as_code/opa/dlp/dlp09_agentic_safety.rego"
+        ],
+        "checkov_checks": [],
+        "evidence_sources": [
+          "platform/governance/compliance_as_code/checkov/mappings/owasp_llm_top10_2025.yaml",
+          "platform/mlsecops/data_movement/flows.json",
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "AI-03",
+      "name": "Human Oversight & Explainability",
+      "description": "Provide human review paths and explainable outputs for DLP decisions, OPA data movement results, and RAG evidence bundles.\n",
+      "domain": "Governance",
+      "requirement": "Material decisions derived from AI or automated DLP SHALL be subject to human oversight, and the reasoning behind decisions SHALL be available in a human-readable form.\n",
+      "frameworks": [
+        {
+          "name": "ISO42001:2023",
+          "ref": "8.6, 8.7"
+        },
+        {
+          "name": "NIST AI RMF",
+          "ref": "GOVERN-1, MANAGE-1"
+        }
+      ],
+      "tools": {
+        "opa_policies": [
+          "platform/governance/policies_as_code/opa/dlp/dlp13_evidence.rego",
+          "platform/governance/policies_as_code/opa/dlp_runtime/dlp_runtime.rego"
+        ],
+        "checkov_checks": [],
+        "evidence_sources": [
+          "platform/evidence/evidence_unified.json"
+        ]
+      }
+    },
+    {
+      "id": "ISO27001-A.9.1.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-DLP-RUNTIME-DECISION",
+            "package": "dlp.runtime",
+            "rule": "decision",
+            "description": "Runtime DLP decision engine (ingress/egress text, PII/PHI, roles)"
+          },
+          {
+            "id": "OPA-TF-ISO27001-ACCESS",
+            "package": "terraform.controls.iso27001_access",
+            "rule": "deny",
+            "description": "Terraform guardrails for IAM / access management"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.9.2.3",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-DLP-RUNTIME-DECISION",
+            "package": "dlp.runtime",
+            "rule": "decision",
+            "description": "Runtime DLP decision engine (ingress/egress text, PII/PHI, roles)"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.18.1.3",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-DLP-RUNTIME-DECISION",
+            "package": "dlp.runtime",
+            "rule": "decision",
+            "description": "Runtime DLP decision engine (ingress/egress text, PII/PHI, roles)"
+          }
+        ],
+        "checkov_checks": [
+          {
+            "check_id": "CKV2_AWS_61",
+            "description": "Ensure that an S3 bucket has a lifecycle configuration"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO42001-6.3.2",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-DLP-RUNTIME-DECISION",
+            "package": "dlp.runtime",
+            "rule": "decision",
+            "description": "Runtime DLP decision engine (ingress/egress text, PII/PHI, roles)"
+          },
+          {
+            "id": "OPA-TF-ISO42001-AI-RISK-DATA",
+            "package": "terraform.controls.iso42001_ai_risk_data",
+            "rule": "deny",
+            "description": "AI data risk controls for RAG infra (logging, data at rest)"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "OWASP-LLM-01",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-DLP-RUNTIME-DECISION",
+            "package": "dlp.runtime",
+            "rule": "decision",
+            "description": "Runtime DLP decision engine (ingress/egress text, PII/PHI, roles)"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.13.2.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-DLP-DATA-MOVEMENT",
+            "package": "data.movement",
+            "rule": "allow",
+            "description": "Data movement guardrails between RAG components"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.13.2.3",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-DLP-DATA-MOVEMENT",
+            "package": "data.movement",
+            "rule": "allow",
+            "description": "Data movement guardrails between RAG components"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO42001-8.4.3",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-DLP-DATA-MOVEMENT",
+            "package": "data.movement",
+            "rule": "allow",
+            "description": "Data movement guardrails between RAG components"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "OWASP-LLM-08",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-DLP-DATA-MOVEMENT",
+            "package": "data.movement",
+            "rule": "allow",
+            "description": "Data movement guardrails between RAG components"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.9.2.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-TF-ISO27001-ACCESS",
+            "package": "terraform.controls.iso27001_access",
+            "rule": "deny",
+            "description": "Terraform guardrails for IAM / access management"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.15.1.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-TF-ISO27001-CHANGE-SUPPLIER",
+            "package": "terraform.controls.iso27001_change_supplier",
+            "rule": "deny",
+            "description": "Guardrails for changes to external suppliers / services"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.15.2.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-TF-ISO27001-CHANGE-SUPPLIER",
+            "package": "terraform.controls.iso27001_change_supplier",
+            "rule": "deny",
+            "description": "Guardrails for changes to external suppliers / services"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.10.1.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-TF-ISO27001-CRYPTO-LOGGING",
+            "package": "terraform.controls.iso27001_crypto_logging",
+            "rule": "deny",
+            "description": "KMS and logging baselines for evidence vault and CloudTrail"
+          }
+        ],
+        "checkov_checks": [
+          {
+            "check_id": "CKV2_AWS_64",
+            "description": "Ensure KMS key Policy is defined"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.12.4.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-TF-ISO27001-CRYPTO-LOGGING",
+            "package": "terraform.controls.iso27001_crypto_logging",
+            "rule": "deny",
+            "description": "KMS and logging baselines for evidence vault and CloudTrail"
+          }
+        ],
+        "checkov_checks": [
+          {
+            "check_id": "CKV_AWS_252",
+            "description": "Ensure CloudTrail defines an SNS Topic"
+          },
+          {
+            "check_id": "CKV2_AWS_10",
+            "description": "Ensure CloudTrail trails are integrated with CloudWatch Logs"
+          },
+          {
+            "check_id": "CKV2_AWS_62",
+            "description": "Ensure S3 buckets should have event notifications enabled"
+          },
+          {
+            "check_id": "CKV_AWS_18",
+            "description": "Ensure the S3 bucket has access logging enabled"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO42001-8.2.3",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-TF-ISO42001-AI-RISK-DATA",
+            "package": "terraform.controls.iso42001_ai_risk_data",
+            "rule": "deny",
+            "description": "AI data risk controls for RAG infra (logging, data at rest)"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.6.1.5",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-TF-GENERAL-GUARDRAILS",
+            "package": "terraform_guardrails",
+            "rule": "deny",
+            "description": "Top-level Terraform guardrails policy aggregator"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.12.1.2",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-TF-GENERAL-GUARDRAILS",
+            "package": "terraform_guardrails",
+            "rule": "deny",
+            "description": "Top-level Terraform guardrails policy aggregator"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO42001-5.3.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [
+          {
+            "id": "OPA-TF-GENERAL-GUARDRAILS",
+            "package": "terraform_guardrails",
+            "rule": "deny",
+            "description": "Top-level Terraform guardrails policy aggregator"
+          }
+        ],
+        "checkov_checks": [],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.16.1.2",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV_AWS_252",
+            "description": "Ensure CloudTrail defines an SNS Topic"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.12.4.3",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV2_AWS_10",
+            "description": "Ensure CloudTrail trails are integrated with CloudWatch Logs"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.9.1.2",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV2_AWS_64",
+            "description": "Ensure KMS key Policy is defined"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.16.1.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV2_AWS_62",
+            "description": "Ensure S3 buckets should have event notifications enabled"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.9.4.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV2_AWS_6",
+            "description": "Ensure that an S3 bucket has a Public Access block"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.13.1.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV2_AWS_6",
+            "description": "Ensure that an S3 bucket has a Public Access block"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.11.2.7",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV2_AWS_61",
+            "description": "Ensure that an S3 bucket has a lifecycle configuration"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.15.1.3",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV_AWS_18",
+            "description": "Ensure the S3 bucket has access logging enabled"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.17.1.2",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV_AWS_144",
+            "description": "Ensure that S3 bucket has cross-region replication enabled"
+          }
+        ],
+        "evidence_sources": []
+      }
+    },
+    {
+      "id": "ISO27001-A.17.2.1",
+      "name": null,
+      "description": null,
+      "domain": null,
+      "requirement": null,
+      "frameworks": [],
+      "tools": {
+        "opa_policies": [],
+        "checkov_checks": [
+          {
+            "check_id": "CKV_AWS_144",
+            "description": "Ensure that S3 bucket has cross-region replication enabled"
+          }
+        ],
+        "evidence_sources": []
+      }
+    }
+  ],
+  "artifacts": {
+    "opa": {
+      "runtime": {
+        "source": "opa_runtime",
+        "results": []
+      },
+      "terraform": {
+        "source": "opa_terraform",
+        "results": []
+      }
+    },
+    "checkov": {
+      "source": "checkov",
+      "results": []
+    },
+    "terraform_plan": {
+      "source": "terraform_plan",
+      "changes": []
+    },
+    "s3_metadata": {
+      "buckets": []
+    },
+    "ml_metadata": {
+      "runs": []
+    },
+    "logs": {
+      "data_movement": [],
+      "classification": []
+    }
+  }
+}

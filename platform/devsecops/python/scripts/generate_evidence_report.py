@@ -10,12 +10,18 @@ import yaml  # pip install pyyaml
 
 
 def find_repo_root(start: Path) -> Path:
-    """Walk upwards until we find a 'platform' dir; treat that as repo root."""
+    """
+    Walk upwards until we find a directory that contains `platform/governance`.
+    That directory is the repo root.
+
+    This avoids accidentally treating the inner `platform/` directory itself
+    as the repo root (which created paths like platform/devsecops/platform/...).
+    """
     for p in [start] + list(start.parents):
-        if (p / "platform").is_dir():
+        candidate = p / "platform" / "governance"
+        if candidate.is_dir():
             return p
     return start
-
 
 def load_yaml(path: Path, required: bool = True):
     if not path.exists():
@@ -227,10 +233,6 @@ def main(argv=None):
     checkov_map = load_yaml(checkov_map_path, required=True)
 
     control_index = build_control_index(unified_controls, opa_map, checkov_map)
-
-    # load evidence artifacts (best-effort, don't hard fail on missing optional files)
-    repo_root = Path(__file__).resolve().parents[2]
-
     # Make OPA + ancillary evidence OPTIONAL for now so the pipeline doesn’t fail
     opa_runtime = load_json(
         repo_root / args.opa_runtime,
