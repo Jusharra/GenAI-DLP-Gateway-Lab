@@ -49,8 +49,10 @@ logs/
 # -------------------------
 # Evidence output
 # -------------------------
+# Evidence output
 platform/evidence/*
-!platform/evidence/.keep   # keep the folder but ignore its content
+!platform/evidence/.keep
+!platform/evidence/evidence_unified.json
 
 # -------------------------
 # ML / RAG Artifacts
