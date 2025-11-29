@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from pathlib import Path
@@ -375,16 +376,30 @@ if run_demo:
                 evidence_path = ROOT / "platform" / "evidence" / "evidence_unified.json"
                 if evidence_path.exists():
                     st.markdown("### 3️⃣ Evidence snapshot for GRC")
+                    st.caption(
+                        "Mapped unified controls with OPA policies and Checkov checks "
+                        "(showing a small subset for demo)."
+                    )
+
+                    # Resolve path relative to this file, not the working directory
+                    APP_ROOT = Path(__file__).resolve().parent
+                    EVIDENCE_PATH = APP_ROOT / "platform" / "evidence" / "evidence_unified.json"
+
+                    evidence = None
                     try:
-                        import json
-                        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
-                        controls = evidence.get("controls", [])[:10]  # show first few
-                        st.caption(
-                            "Mapped unified controls with OPA policies and Checkov checks "
-                            "(showing a small subset for demo)."
+                        if EVIDENCE_PATH.exists():
+                            with EVIDENCE_PATH.open("r", encoding="utf-8") as f:
+                                evidence = json.load(f)
+                    except Exception:
+                        # If anything goes wrong reading/parsing, we'll fall back to the info banner
+                        evidence = None
+
+                    controls = (evidence or {}).get("controls") or []
+
+                    if not controls:
+                        st.info(
+                            "Run the CI pipeline to generate unified evidence before demoing this section."
                         )
-                        st.json(controls)
-                    except Exception as e:
-                        st.warning(f"Could not load evidence_unified.json: {e}")
-                else:
-                    st.info("Run the CI pipeline to generate unified evidence before demoing this section.")
+                    else:
+                        # If you only want to show a subset, slice here
+                        st.json(controls[:10])
