@@ -90,34 +90,45 @@ def build_control_index(unified_controls, opa_map, checkov_map):
             cid = ctrl.get("id")
             if not cid:
                 continue
+
+            tools = ctrl.get("tools", {}) or {}
+
             index[cid] = {
                 "id": cid,
                 "name": ctrl.get("name"),
                 "description": ctrl.get("description"),
+                "domain": ctrl.get("domain"),
+                "requirement": ctrl.get("requirement"),
                 "frameworks": ctrl.get("frameworks", []),
                 "tools": {
-                    "opa_policies": [],
-                    "checkov_checks": [],
+                    # these may be plain strings from YAML (paths),
+                    # and later we also append dicts from the mappings
+                    "opa_policies": list(tools.get("opa_policies", [])),
+                    "checkov_checks": list(tools.get("checkov_checks", [])),
+                    "evidence_sources": list(tools.get("evidence_sources", [])),
                 },
             }
+
+    def _empty_entry(cid: str) -> dict:
+        return {
+            "id": cid,
+            "name": None,
+            "description": None,
+            "domain": None,
+            "requirement": None,
+            "frameworks": [],
+            "tools": {
+                "opa_policies": [],
+                "checkov_checks": [],
+                "evidence_sources": [],
+            },
+        }
 
     # add OPA coverage
     for pol in opa_map.get("opa_policies", []):
         tool_id = pol.get("id")
         for cid in pol.get("unified_controls", []):
-            entry = index.setdefault(
-                cid,
-                {
-                    "id": cid,
-                    "name": None,
-                    "description": None,
-                    "frameworks": [],
-                    "tools": {
-                        "opa_policies": [],
-                        "checkov_checks": [],
-                    },
-                },
-            )
+            entry = index.setdefault(cid, _empty_entry(cid))
             entry["tools"]["opa_policies"].append(
                 {
                     "id": tool_id,
@@ -131,19 +142,7 @@ def build_control_index(unified_controls, opa_map, checkov_map):
     for chk in checkov_map.get("checkov_mappings", []):
         check_id = chk.get("check_id")
         for cid in chk.get("unified_controls", []):
-            entry = index.setdefault(
-                cid,
-                {
-                    "id": cid,
-                    "name": None,
-                    "description": None,
-                    "frameworks": [],
-                    "tools": {
-                        "opa_policies": [],
-                        "checkov_checks": [],
-                    },
-                },
-            )
+            entry = index.setdefault(cid, _empty_entry(cid))
             entry["tools"]["checkov_checks"].append(
                 {
                     "check_id": check_id,
