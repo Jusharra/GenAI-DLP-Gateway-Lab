@@ -169,7 +169,7 @@ def summarize_rag_results(prompt: str, matches: List[Dict[str, Any]]) -> str:
             {
                 "role": "system",
                 "content": (
-                    "You are an AI security assistant explaining how retrieved "
+                    "You are an AI security and compliance risk assistant explaining how retrieved "
                     "AI attack / ATLAS Matrix techniques relate to a user's prompt. "
                     "Summarize in 3–4 bullet points, focusing on why these "
                     "techniques are relevant and what they show about risk."
