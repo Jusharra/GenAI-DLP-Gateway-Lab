@@ -375,31 +375,41 @@ if run_demo:
            # ---------------- UI: Evidence snapshot (optional) ----------------
                 evidence_path = ROOT / "platform" / "evidence" / "evidence_unified.json"
                 if evidence_path.exists():
+                    import json
+                    from pathlib import Path
+
+                    # ...
+
                     st.markdown("### 3️⃣ Evidence snapshot for GRC")
                     st.caption(
                         "Mapped unified controls with OPA policies and Checkov checks "
                         "(showing a small subset for demo)."
                     )
 
-                    # Resolve path relative to this file, not the working directory
                     APP_ROOT = Path(__file__).resolve().parent
                     EVIDENCE_PATH = APP_ROOT / "platform" / "evidence" / "evidence_unified.json"
 
+                    # Make sure evidence is always defined
                     evidence = None
+
                     try:
                         if EVIDENCE_PATH.exists():
                             with EVIDENCE_PATH.open("r", encoding="utf-8") as f:
                                 evidence = json.load(f)
+                        else:
+                            # File not present – keep evidence as None
+                            evidence = None
                     except Exception:
-                        # If anything goes wrong reading/parsing, we'll fall back to the info banner
+                        # Any read/parse error – treat as missing evidence
                         evidence = None
 
-                    controls = (evidence or {}).get("controls") or []
+                    controls = (evidence or {}).get("controls", [])
 
                     if not controls:
                         st.info(
                             "Run the CI pipeline to generate unified evidence before demoing this section."
                         )
                     else:
-                        # If you only want to show a subset, slice here
+                        # Show a small subset for the UI
                         st.json(controls[:10])
+
